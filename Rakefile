@@ -10,10 +10,11 @@ begin
     gem.email = "sfeley@gmail.com"
     gem.homepage = "http://github.com/SFEley/crunch"
     gem.authors = ["Stephen Eley"]
-    gem.add_dependency "rev", ">= 0.3.2"
-    gem.add_dependency "bson_ext", ">= 1.0"
+    gem.add_dependency "revactor", ">= 0.1.5"
+    gem.add_dependency "bson", ">= 1.0"
     gem.add_development_dependency "rspec", ">= 1.2.9"
     gem.add_development_dependency "yard", ">= 0"
+    gem.add_development_dependency "mocha"
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
   Jeweler::GemcutterTasks.new
