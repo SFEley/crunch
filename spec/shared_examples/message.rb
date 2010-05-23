@@ -15,8 +15,8 @@ shared_examples_for "a Message" do
     @this.deliver[4..7].unpack('V').first.should be_close(Message.request_id, 2)
   end
   
-  it "contains a response ID if called for" do
-    @this.deliver[8..11].unpack('V').first.should == @this.response_id
+  it "contains a response ID of 0" do
+    @this.deliver[8..11].unpack('V').first.should == 0
   end
   
   it "contains the opcode" do

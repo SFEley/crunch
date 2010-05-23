@@ -21,12 +21,7 @@ module Crunch
       @opcode
     end
     
-    attr_reader :response_id
-    
-    def initialize
-      @response_id = 0
-    end
-    
+        
     # The content of the message. Will be overridden in every subclass with more interesting behavior.
     def body
       "To sit in sullen silence...\x00".force_encoding(Encoding::BINARY)
