@@ -54,21 +54,17 @@ module Crunch
       it "returns the same object if called later with the same parameters"
     end
   
-    describe "removal" do
-      it "requires admin authentication if authentication is active"
-    
-      it "closes all connections"
-    
-      it "throws an exception on all methods"
-    end
-  
-    describe "connection handling" do
-
-    end
-    
-    describe "commands" do
+    describe "operation" do
+      before(:each) do
+        @this = Database.connect 'crunch_test'
+      end
+      
+      it "has a command collection" do
+        @this.command.should be_a(CommandCollection)
+      end
       
     end
+
     
 
   end

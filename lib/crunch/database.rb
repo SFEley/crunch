@@ -12,7 +12,7 @@ module Crunch
   # this ensures that other attempts to connect with the same credentials
   # will get the same database object and share the same connections.
   class Database
-    attr_reader :name, :host, :port
+    attr_reader :name, :host, :port, :command
     
     # Returns a database object from which you can query or obtain 
     # Crunch::Collections. An immediate connection will be made to verify
@@ -54,6 +54,7 @@ module Crunch
     def initialize(name, host, port)
       @name, @host, @port = name, host, port
       
+      @command = CommandCollection.send(:new, self)
       connection = Revactor::TCP.connect(host, port)
     end
   end
