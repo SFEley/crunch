@@ -8,10 +8,21 @@ module Crunch
   # by Crunch, and can accept one authentication (if necessary).  This 
   # dramatically simplifies the API.
   describe Crunch::Database do
+    before(:each) do
+      EventMachine.stop && sleep(0.1) if EventMachine.reactor_running?
+    end
   
     it "must be instantiated with connect()" do
       lambda{d = Database.new}.should raise_error(NoMethodError)
     end
+    
+    it "starts EventMachine if it isn't already running" do
+      d = Database.connect 'foo'
+      EventMachine.next_tick do
+        EventMachine.should be_reactor_running
+      end
+    end
+      
   
     describe "connection" do
       it "requires a name" do
@@ -19,19 +30,29 @@ module Crunch
       end
 
       it "defaults to localhost:27017" do
-        Revactor::TCP.expects(:connect).with('localhost',27017)
-        d = Database.connect 'foo'
+        EventMachine.expects(:connect).with('localhost',27017)
+        tick do
+          d = Database.connect 'foo'
+        end
       end
       
       it "accepts a given host" do
-        Revactor::TCP.expects(:connect).with('example.org',27017)
-        d = Database.connect 'foo', host: 'example.org'
+        EventMachine.expects(:connect).with('example.org',27017)
+        tick do
+          d = Database.connect 'foo', host: 'example.org'
+        end
       end
       
 
       it "accepts a given port" do
-        Revactor::TCP.expects(:connect).with('localhost',71072)
-        d = Database.connect 'foo', port: 71072
+        EventMachine.expects(:connect).with('localhost',71072)
+        tick do 
+          d = Database.connect 'foo', port: 71072
+        end
+      end
+      
+      it "keeps a connection" do
+        d = Database.connect 'crunch_test'
       end
         
 

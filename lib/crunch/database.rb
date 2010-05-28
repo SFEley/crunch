@@ -1,4 +1,4 @@
-require 'revactor'
+require 'eventmachine'
 
 module Crunch
   
@@ -12,7 +12,7 @@ module Crunch
   # this ensures that other attempts to connect with the same credentials
   # will get the same database object and share the same connections.
   class Database
-    attr_reader :name, :host, :port, :command
+    attr_reader :name, :host, :port, :command, :connection
     
     # Returns a database object from which you can query or obtain 
     # Crunch::Collections. An immediate connection will be made to verify
@@ -53,9 +53,21 @@ module Crunch
     
     def initialize(name, host, port)
       @name, @host, @port = name, host, port
-      
       @command = CommandCollection.send(:new, self)
-      connection = Revactor::TCP.connect(host, port)
+      @connection = Object   # Just make a placeholder for the thing for closure purposes
+      
+      # This would be so much easier if "EventMachine.run" included the reactor_running? check...
+      if EventMachine.reactor_running?
+        EventMachine.next_tick do
+          @connection = EventMachine.connect(host, port)
+        end
+      else
+        Thread.new do 
+          EventMachine.run do
+            @connection = EventMachine.connect(host, port)
+          end
+        end
+      end
     end
   end
 end

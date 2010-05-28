@@ -4,7 +4,7 @@ module Crunch
   describe CommandCollection do
     before(:each) do
       @database = stub "Database", name: 'TestDB'
-      @this = CommandCollection.spawn(@database) {|db| @database = db, @name = '$cmd', @full_name = "#{db}.$cmd"}
+      @this = CommandCollection.send(:new, @database)
     end
     
     it "knows its name" do
