@@ -15,6 +15,7 @@ module Crunch
     def insert(data)
       EventMachine.next_tick do
         message = InsertMessage.new(self, data)
+        database << message
       end
     end
      

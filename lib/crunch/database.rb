@@ -47,6 +47,17 @@ module Crunch
       end).resume
     end
     
+    # Accepts a message to be sent to MongoDB (insert, update, query, etc.), schedules it
+    # in EventMachine, and returns immediately.
+    #
+    # @param [Message] message An instance of a Message subclass
+    # @return true
+    def <<(message)
+      raise DatabaseError, "The data to be sent must be a Message class; instead you sent: #{message}" unless message.kind_of?(Message)
+      connection.send_data(message.deliver)
+      true
+    end
+    
     private_class_method :new
     
   private
@@ -54,7 +65,7 @@ module Crunch
     def initialize(name, host, port)
       @name, @host, @port = name, host, port
       @command = CommandCollection.send(:new, self)
-      @connection = Object   # Just make a placeholder for the thing for closure purposes
+      @connection = :placeholder   # Just make a placeholder for the thing for closure purposes
       
       # This would be so much easier if "EventMachine.run" included the reactor_running? check...
       if EventMachine.reactor_running?
@@ -67,6 +78,9 @@ module Crunch
             @connection = EventMachine.connect(host, port)
           end
         end
+      end
+      while @connection == :placeholder
+        sleep 0.0001
       end
     end
   end

@@ -3,7 +3,7 @@ require File.dirname(__FILE__) + '/../spec_helper'
 module Crunch
   describe Collection do
     before(:each) do
-      @database = stub("Database", name: 'TestDB')
+      @database = Database.connect('TestDB')
       @this = Collection.send(:new, @database, 'TestCollection')
     end
     
@@ -25,22 +25,20 @@ module Crunch
     
     describe "inserting" do
       before(:each) do
-        @document = {foo: 'bar', 'num' => 5.2, 'bool' => false}
+        @document = {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false}
       end
       
-      # it "should happen on the next tick" do
-      #   EventMachine.expects(:next_tick).yields
-      #   tick do
-      #     @this.insert @document
-      #   end
-      # end
-      # 
-      # it "sends an InsertMessage to the database" do
-      #   @database.expects(:<<).with(instance_of(InsertMessage))
-      #   tick do
-      #     @this.insert @document
-      #   end
-      # end
+      
+      
+      it "should happen on the next tick" do
+        EventMachine.expects(:next_tick).yields
+        @this.insert @document
+      end
+      
+      it "sends an InsertMessage to the database" do
+        @database.expects(:<<).with(instance_of(InsertMessage))
+        tick {@this.insert @document}
+      end
 
       
     end
