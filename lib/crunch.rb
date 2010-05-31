@@ -1,4 +1,5 @@
 require 'crunch/exceptions'
+require 'eventmachine'
 
 module Crunch
   # Hey, it's Ruby 1.9.  Autoload is safe again!  Spread the word.

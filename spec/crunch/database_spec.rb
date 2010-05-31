@@ -7,7 +7,7 @@ module Crunch
   # connections at any given time, which will be managed automatically
   # by Crunch, and can accept one authentication (if necessary).  This 
   # dramatically simplifies the API.
-  describe Crunch::Database do
+  describe Database do
     before(:each) do
       EventMachine.stop && sleep(0.1) if EventMachine.reactor_running?
     end
