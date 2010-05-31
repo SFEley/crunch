@@ -1,11 +1,4 @@
 shared_examples_for "a Message" do
-  it "requires a collection" do
-    ->{@class.new}.should raise_error(ArgumentError)
-  end
-  
-  it "knows its collection name" do
-    @this.collection_name.should == "TestDB.TestCollection"
-  end
   
   it "has a request ID that increments across classes" do
       (@this.class.request_id - Message.request_id).should == -1      

@@ -8,7 +8,7 @@ module Crunch
     
     before(:each) do
       @collection = stub full_name: 'TestDB.TestCollection'
-      @class = QueryMessage
+      
       @this = QueryMessage.new(@collection, 
                                 query: {foo: :bar},
                                 fields: [:foo, 'zoo'],
@@ -17,6 +17,14 @@ module Crunch
     end
     
     it_should_behave_like "a Message"
+
+    it "requires a collection" do
+      ->{QueryMessage.new}.should raise_error(ArgumentError)
+    end
+
+    it "knows its collection name" do
+      @this.collection_name.should == "TestDB.TestCollection"
+    end
     
     
     it "can take a query on creation" do

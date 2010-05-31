@@ -9,5 +9,6 @@ module Crunch
   
   autoload :Message, 'crunch/message'
   autoload :QueryMessage, 'crunch/messages/query_message'
+  autoload :InsertMessage, 'crunch/messages/insert_message'
   
 end
