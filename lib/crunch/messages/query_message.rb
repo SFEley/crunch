@@ -1,6 +1,6 @@
 module Crunch
   class QueryMessage < Message
-    @opcode = 2004
+    @opcode = 2004  # OP_QUERY
     
     attr_reader :collection_name
     attr_accessor :query, :fields, :skip, :limit
@@ -12,8 +12,8 @@ module Crunch
     #
     # @param [Collection] collection What we're querying against
     # @param [optional Hash] opts Optional parameters
-    # @option opts [Hash] :query The selection criteria
-    # @option opts [Array] :fields An optional list of fields to return (returns all if empty)
+    # @option opts [Hash] :query ({}) The selection criteria
+    # @option opts [Array] :fields ([]) An optional list of fields to return (returns all if empty)
     # @option opts [Integer] :skip Skip the first x records (for paging)
     # @option opts [Integer] :limit Return only y records
     def initialize(collection, opts={})

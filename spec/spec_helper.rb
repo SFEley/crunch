@@ -4,6 +4,7 @@ require 'crunch'
 require 'spec'
 require 'spec/autorun'
 require 'mocha'
+require 'mongo'  # For verification only!
 
 # Perform the requested action, but then don't come back until at least one EventMachine tick has passed.
 def tick
@@ -23,7 +24,14 @@ def tick
   end
 end
     
+def verifier
+  db = Mongo::Connection.new.db('crunch_test')
+  db.collection('TestCollection')
+end
 
 Spec::Runner.configure do |config|
   config.mock_with :mocha
+  config.after(:each) do
+    Mongo::Connection.new.drop_database('crunch_test')
+  end
 end

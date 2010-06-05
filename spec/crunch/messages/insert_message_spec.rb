@@ -6,7 +6,7 @@ module Crunch
     BSON_DOC = "/\x00\x00\x00\x10_id\x00\x11\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x01num\x00\xCD\xCC\xCC\xCC\xCC\xCC\x14@\bbool\x00\x00\x00"
     
     before(:each) do
-      @collection = stub full_name: 'TestDB.TestCollection'
+      @collection = stub full_name: 'crunch_test.TestCollection'
       @document = {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false}
       @this = InsertMessage.new(@collection, @document)
     end
@@ -18,7 +18,7 @@ module Crunch
     end
 
     it "knows its collection name" do
-      @this.collection_name.should == "TestDB.TestCollection"
+      @this.collection_name.should == "crunch_test.TestCollection"
     end
     
     it "can take a document on creation" do
@@ -46,11 +46,11 @@ module Crunch
       end
       
       it "contains the collection name" do
-        @this.body[4..25].should == "TestDB.TestCollection\x00"
+        @this.body[4..30].should == "crunch_test.TestCollection\x00"
       end
       
       it "contains the document" do
-        @this.body[26..73].should == BSON_DOC
+        @this.body[31..79].should == BSON_DOC
       end
     end
   end    

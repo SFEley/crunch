@@ -1,19 +1,18 @@
 module Crunch
+  
+  # Produces an instruction in the MongoDB Wire Protocol to push a new document into the
+  # database.  It's assumed that the document has already been serialized to MongoDB
+  # compatible values and has an _id field. If a document isn't supplied on
+  # initialization or with the #document attribute, a MessageError will be
+  # raised.
   class InsertMessage < Message
-    @opcode = 2002
+    @opcode = 2002  # OP_INSERT
     
     attr_reader :collection_name
     attr_accessor :document
-  #   attr_accessor :query, :fields, :skip, :limit
-  #   
   
-    # It's assumed that the document has already been serialized to MongoDB
-    # compatible values and has an _id field. If a document isn't supplied on
-    # initialization or with the #document attribute, a MessageError will be
-    # raised.
-    #
     # @param [Collection] collection What we're querying against
-    # @param [Hash] document The fields to be inserted
+    # @param [optional, Hash] document The fields to be inserted
     def initialize(collection, document={})
       @collection_name, @document = collection.full_name, document
     end

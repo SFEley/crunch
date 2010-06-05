@@ -7,14 +7,11 @@ module Crunch
   class Message < BSON::ByteBuffer
     @opcode = 1000  # OP_MSG
     
-    @@request_id_generator ||= Fiber.new do
-      i = 0
-      loop {Fiber.yield i += 1}
-    end
+    @@request_id = 0
 
     # Generates a new request ID. Monotonically increases across all classes.
     def self.request_id
-      @@request_id_generator.resume
+      @@request_id += 1
     end
     
     def self.opcode

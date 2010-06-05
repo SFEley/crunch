@@ -3,7 +3,7 @@ require_relative '../../spec_helper'
 module Crunch
   describe CommandCollection do
     before(:each) do
-      @database = stub "Database", name: 'TestDB'
+      @database = stub "Database", name: 'crunch_test'
       @this = CommandCollection.send(:new, @database)
     end
     
@@ -12,7 +12,7 @@ module Crunch
     end
     
     it "knows its full name" do
-      @this.full_name.should == 'TestDB.$cmd'
+      @this.full_name.should == 'crunch_test.$cmd'
     end
     
     describe "getnonce" do

@@ -7,7 +7,7 @@ module Crunch
     FIELDHASH = " \x00\x00\x00\x10_id\x00\x01\x00\x00\x00\x10foo\x00\x01\x00\x00\x00\x10zoo\x00\x01\x00\x00\x00\x00"
     
     before(:each) do
-      @collection = stub full_name: 'TestDB.TestCollection'
+      @collection = stub full_name: 'crunch_test.TestCollection'
       
       @this = QueryMessage.new(@collection, 
                                 query: {foo: :bar},
@@ -23,7 +23,7 @@ module Crunch
     end
 
     it "knows its collection name" do
-      @this.collection_name.should == "TestDB.TestCollection"
+      @this.collection_name.should == "crunch_test.TestCollection"
     end
     
     
@@ -89,33 +89,33 @@ module Crunch
       end
       
       it "contains the collection name" do
-        @this.body[4..25].should == "TestDB.TestCollection\x00"
+        @this.body[4..30].should == "crunch_test.TestCollection\x00"
       end
       
       it "contains the skip count" do
-        @this.body[26..29].unpack('V').first.should == 11
+        @this.body[31..34].unpack('V').first.should == 11
       end
       
       it "contains the limit" do
-        @this.body[30..33].unpack('V').first.should == 50
+        @this.body[35..38].unpack('V').first.should == 50
       end
       
       it "contains the query document" do
-        @this.body[34..51].should == FOOBAR
+        @this.body[39..56].should == FOOBAR
       end
         
       it "contains the field list" do
-        @this.body[52..83].should == FIELDHASH
+        @this.body[57..89].should == FIELDHASH
       end
       
       it "contains no field list if no fields were defined" do
         @this.fields = nil
-        @this.body.length.should == 52
+        @this.body.length.should == 57
       end
       
       it "contains no field list if the fields array is empty" do
         @this.fields = []
-        @this.body.length.should == 52
+        @this.body.length.should == 57
       end
     end
     

@@ -36,17 +36,6 @@ module Crunch
       new name, host, port
     end
     
-    # Generates a new request ID. Monotonically increases across all classes, but doesn't exceed 32 bits.
-    def self.request_id
-      (@request_id_generator ||= Fiber.new do
-        i = 0
-        loop do
-          Fiber.yield i += 1
-          i = -2147483647 if i == 2147483647  # Keep the range within a 32-bit signed word
-        end
-      end).resume
-    end
-    
     # Accepts a message to be sent to MongoDB (insert, update, query, etc.), schedules it
     # in EventMachine, and returns immediately.
     #
