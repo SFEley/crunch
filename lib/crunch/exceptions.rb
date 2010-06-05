@@ -1,7 +1,11 @@
 module Crunch
-  class DatabaseError < StandardError; end
+  class CrunchError < StandardError; end
   
-  class MessageError < StandardError; end
+  class DatabaseError < CrunchError; end
   
-  class DocumentError < StandardError; end
+  class MessageError < CrunchError; end
+  
+  class DocumentError < CrunchError; end
+  
+  class FieldsetError < CrunchError; end
 end

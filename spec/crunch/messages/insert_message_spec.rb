@@ -7,32 +7,23 @@ module Crunch
     
     before(:each) do
       @collection = stub full_name: 'crunch_test.TestCollection'
-      @document = {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false}
-      @this = InsertMessage.new(@collection, @document)
+      @document = Document.send(:new, @collection, '_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false)
+      @this = InsertMessage.new(@document)
     end
     
     it_should_behave_like "a Message"
     
-    it "requires a collection" do
+    it "requires a document" do
       ->{InsertMessage.new}.should raise_error(ArgumentError)
     end
 
-    it "knows its collection name" do
-      @this.collection_name.should == "crunch_test.TestCollection"
-    end
-    
     it "can take a document on creation" do
       @this.document.should == @document
     end
-    
-    it "can take a document after the fact" do
-      @this.document = {too: :tar}
-      @this.document.should == {too: :tar}
-    end
-    
+        
     it "can modify the document after the fact" do
       @this.document.merge! zoo: :zar
-      @this.document.should == {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false, zoo: :zar}
+      @this.document.should == {'_id' => 17, 'foo' => 'bar', 'num' => 5.2, 'bool' => false, 'zoo' => :zar}
     end
     
     it "raises an error if the document doesn't have an _id" do

@@ -6,6 +6,7 @@ module Crunch
   autoload :Database, 'crunch/database'
   autoload :Collection, 'crunch/collection'
   autoload :CommandCollection, 'crunch/collections/command_collection'
+  autoload :Fieldset, 'crunch/fieldset'
   autoload :Document, 'crunch/document'
   
   # The reason we're autoloading is because not all apps are likely to use all

@@ -22,7 +22,7 @@ module Crunch
     end
     
     it "takes a hash as its own values" do
-      @this.should include(foo: 'bar', too: :tar, slappy: 17)
+      @this.should include('foo' => 'bar', 'too' => :tar, 'slappy' => 17)
     end
     
     it "always has an ID" do
@@ -46,6 +46,13 @@ module Crunch
     it "knows how to serialize itself" do
       @this['_id'] = 7  # For predictability
       "#{@this}".should == BSON_WITH_ID
+    end
+    
+    describe "messages" do
+      
+      it "should description" do
+        
+      end
     end
   end
 end

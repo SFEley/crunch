@@ -5,7 +5,8 @@ module Crunch
     before(:each) do
       @database = Database.connect('crunch_test')
       @this = Collection.send(:new, @database, 'TestCollection')
-      @document = {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false}
+      @record = {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false}
+      @record2 = {'num' => 7.5, 'bool' => false}
     end
     
     it "cannot be created directly" do
@@ -28,35 +29,36 @@ module Crunch
       
       it "should happen on the next tick" do
         EventMachine.expects(:next_tick).yields
-        @this.insert @document
+        @this.insert @record
       end
       
       it "sends an InsertMessage to the database" do
         @database.expects(:<<).with(instance_of(InsertMessage))
-        tick {@this.insert @document}
+        @this.insert @record
       end
 
       it "inserts the record into Mongo" do
-        @this.insert @document
+        @this.insert @record
         sleep 0.5
         verifier.find_one('_id' => 17).should == {'_id' => 17, 'foo' => 'bar', 'num' => 5.2, 'bool' => false}
       end
       
       it "returns a Crunch::Document" do
-        doc = @this.insert @document
+        doc = @this.insert @record
         doc.should be_a(Crunch::Document)
       end
       
     end
     
-    describe "updating" do
+    describe "updating multiple records" do
       before(:each) do
-        tick {@this.insert @document}
+        @this.insert @record
+        @this.insert @record2
       end
       
       it "happens on the next tick" do
         EventMachine.expects(:next_tick).yields
-        @this.update(id: 17, update: {'$set' => {'foo' => 'tar'}})
+        @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})
       end
       
       it "sends an UpdateMessage to the database"
