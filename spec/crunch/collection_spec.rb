@@ -52,8 +52,47 @@ module Crunch
     
     describe "updating multiple records" do
       before(:each) do
-        @this.insert @record
-        @this.insert @record2
+        tick do
+          @this.insert @record
+          @this.insert @record2
+        end
+      end
+      
+      describe "message setup" do
+        before(:each) do
+         @database.stubs(:<<).returns(true)  # If we don't do this, our message type checking will throw exceptions
+        end
+
+        it "sets the selection if one exists" do
+          UpdateMessage.expects(:new).with(instance_of(Collection), has_entry(selector: {'bool' => false}))
+          @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})
+        end
+
+        it "pushes the ID in if one is given" do
+          UpdateMessage.expects(:new).with(instance_of(Collection), has_entry(selector: {'bool' => false, '_id' => 17}))
+          @this.update(selector: {'bool' => false}, id: 17, update: {'$set' => {'foo' => 'tar'}})
+        end        
+
+        it "takes the update as passed" do
+          UpdateMessage.expects(:new).with(instance_of(Collection), has_entry(update: {'$set' => {'foo' => 'tar'}}))
+          @this.update(selector: {'bool' => false}, id: 17, update: {'$set' => {'foo' => 'tar'}})
+        end
+
+        it "passes the upsert value in" do
+          UpdateMessage.expects(:new).with(instance_of(Collection), has_entry(upsert: false))
+          @this.update(selector: {'bool' => false}, id: 17, update: {'$set' => {'foo' => 'tar'}}, upsert: false)
+        end
+
+        it "passes the multi value in if given" do
+          UpdateMessage.expects(:new).with(instance_of(Collection), has_entry(multi: false))
+          @this.update(selector: {'bool' => false}, id: 17, update: {'$set' => {'foo' => 'tar'}}, multi: false)
+        end
+
+        it "defaults the multi value to true if not given" do
+          UpdateMessage.expects(:new).with(instance_of(Collection), has_entry(multi: true))
+          @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})        
+        end
+        
       end
       
       it "happens on the next tick" do
@@ -61,8 +100,30 @@ module Crunch
         @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})
       end
       
-      it "sends an UpdateMessage to the database"
-      it "updates the record in Mongo"
+      it "sends an UpdateMessage to the database" do
+        @database.expects(:<<).with(instance_of(UpdateMessage))
+        @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})
+      end
+      
+      it "updates records in Mongo" do
+        @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})
+        sleep 0.5
+        verifier.find('foo' => 'tar').count.should == 2
+      end
+
+      it "updates just one record if multi is false" do
+        @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}}, multi: false)
+        sleep 0.5
+        verifier.find('foo' => 'tar').count.should == 1
+      end
+      
+      it "can upsert a record" do
+        @this.update(selector: {'cool' => 'car'}, update: {'$inc' => {'doors' => 2}}, upsert: true)
+        sleep 0.5
+        verifier.find_one('cool' => 'car')['doors'].should == 2
+      end
+      
+      
     end
   end  
 end

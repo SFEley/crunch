@@ -3,12 +3,14 @@ require_relative '../../shared_examples/message'
 
 module Crunch
   describe UpdateMessage do
+    BSON_SELECTOR = "\e\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x10_id\x00\x11\x00\x00\x00\x00" 
+    BSON_UPDATE = "\x1E\x00\x00\x00\x03$set\x00\x13\x00\x00\x00\x02foo\x00\x05\x00\x00\x00narf\x00\x00\x00"
     
     before(:each) do
       @collection = stub full_name: 'crunch_test.TestCollection'
-      @selector = {'_id' => 17, 'foo' => 'bar'}
-      @update = {'$set' => {'foo' => 'narf'}}
-      @this = UpdateMessage.new(@collection, id: 17, update: @update)
+      @selector = Fieldset.new 'foo' => 'bar'
+      @update = Fieldset.new '$set' => {'foo' => 'narf'}
+      @this = UpdateMessage.new(@collection, selector: @selector, id: 17, update: @update, multi: true)
     end
     
     it_should_behave_like "a Message"
@@ -61,7 +63,7 @@ module Crunch
     
     it "stacks the id and the selector" do
       @this.selector['too'] = 'tar'
-      @this.selector.should == {'_id' => 17, 'too' => 'tar'}
+      @this.selector.should == {'foo' => 'bar', '_id' => 17, 'too' => 'tar'}
     end
     
     it "overrides the id if the selector is changed" do
@@ -89,18 +91,26 @@ module Crunch
       @this.should be_upsert
     end
     
-    # describe "body" do
-    #   it "starts with 0 for no options" do
-    #     @this.body[0..3].unpack('V').first.should == 0
-    #   end
-    #   
-    #   it "contains the collection name" do
-    #     @this.body[4..30].should == "crunch_test.TestCollection\x00"
-    #   end
-    #   
-    #   it "contains the document" do
-    #     @this.body[31..79].should == BSON_DOC
-    #   end
-    # end
+    describe "body" do
+      it "starts with 0 for no options" do
+        @this.body[0..3].unpack('V').first.should == 0
+      end
+      
+      it "contains the collection name" do
+        @this.body[4..30].should == "crunch_test.TestCollection\x00"
+      end
+      
+      it "contains the bit flags" do
+        @this.body[31..34].should == "\x02\x00\x00\x00"
+      end
+      
+      it "contains the selector" do
+        @this.body[35..61].should == BSON_SELECTOR
+      end
+      
+      it "contains the update" do
+        @this.body[62..91].should == BSON_UPDATE
+      end
+    end
   end    
 end

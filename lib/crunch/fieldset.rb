@@ -1,3 +1,5 @@
+require 'bson'
+
 module Crunch
   
   # What the BSON spec describes as a "document" -- a hashlike binary structure capable of storing 

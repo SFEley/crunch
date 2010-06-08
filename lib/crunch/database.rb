@@ -42,7 +42,7 @@ module Crunch
     # @param [Message] message An instance of a Message subclass
     # @return true
     def <<(message)
-      raise DatabaseError, "The data to be sent must be a Message class; instead you sent: #{message}" unless message.kind_of?(Message)
+      raise DatabaseError, "The data to be sent must be a Message class; instead you sent a #{message.class}" unless message.kind_of?(Message)
       connection.send_data(message.deliver)
       true
     end

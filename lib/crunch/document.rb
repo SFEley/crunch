@@ -1,5 +1,3 @@
-require 'bson'
-
 module Crunch
   
   # Represents a single document object in MongoDB. Essentially a hash that knows how to serialize itself
