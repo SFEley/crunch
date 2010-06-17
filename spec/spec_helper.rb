@@ -25,13 +25,28 @@ def tick
 end
     
 def verifier
-  db = Mongo::Connection.new.db('crunch_test')
-  db.collection('TestCollection')
+  @verifier_db.collection('TestCollection')
 end
 
 Spec::Runner.configure do |config|
   config.mock_with :mocha
-  config.after(:each) do
-    Mongo::Connection.new.drop_database('crunch_test')
+  
+  config.before(:all) do
+    @verifier_db = Mongo::Connection.new.db('crunch_test') # For verification while we bootstrap
+    @verifier_db.create_collection 'TestCollection'
   end
+    
+    
+  config.after(:each) do
+    # Clean up our database
+    @verifier_db.collections.each do |collection|
+      case collection.name
+      when 'TestCollection' then collection.remove  # Keep the collection, remove all data
+      when /^system\./ then nil   # Leave system collections alone
+      else 
+        @verifier_db.drop_collection collection
+      end
+    end
+  end
+
 end

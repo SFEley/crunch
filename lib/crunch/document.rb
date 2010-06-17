@@ -3,24 +3,17 @@ module Crunch
   # Represents a single document object in MongoDB. Essentially a hash that knows how to serialize itself
   # into BSON and send updates about itself to the database.
   class Document < Fieldset
-    attr_reader :collection
-    
-    private_class_method :new
-    
-    # @return [String] The fully qualified collection: "database_name.collection_name"
-    def collection_name
-      @collection.full_name
-    end
-    
-    private
-    
-    # New documents are produced by collections when you insert or retrieve something.  Don't try to
-    # make your own, or the collection will lose track.
+    attr_reader :database, :collection_name
+        
+    # When called by the user, produces an unsaved document that won't show up in MongoDB until you call {#save} or {#update}. Depending on your use case, this often isn't
+    # what you want.  Consider {Database#insert} or {Collection#insert} instead.
     #
-    # @param [Crunch::Collection] collection The collection that owns this document
+    # @param [Crunch::Database] database The MongoDB database that will store this document (required)
+    # @param [String] collection The name of an existing collection in the database
     # @param [optional, Hash, String, BSON::ByteBuffer] data Sets the hash values -- either directly, or after deserializing if a BSON binary string is provided
-    def initialize(collection, data=nil)
-      @collection = collection
+    def initialize(database, collection, data=nil)
+      @database = database
+      @collection_name = "#{@database.name}.#{collection}"
       
       # Make sure we have an ID
       case data

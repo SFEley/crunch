@@ -12,6 +12,8 @@ module Crunch
   # this ensures that other attempts to connect with the same credentials
   # will get the same database object and share the same connections.
   class Database
+    @@databases ||= {}
+    
     attr_reader :name, :host, :port, :command, :connection
     
     # Returns a database object from which you can query or obtain 
@@ -30,10 +32,12 @@ module Crunch
     # @option opts [Boolean] :create Create the database if it doesn't exist (defaults to true)
     # @return Database The new or existing database object
     def self.connect(name, opts={})
-      host = opts[:host] || 'localhost'
-      port = opts[:port] || 27017
+      # Flesh out our options, we're gonna need them...
+      opts.merge! name: name.to_s
+      opts[:host] ||= 'localhost'
+      opts[:port] ||= 27017
       
-      new name, host, port
+      @@databases[opts] ||= new opts[:name], opts[:host], opts[:port]
     end
     
     # Accepts a message to be sent to MongoDB (insert, update, query, etc.), schedules it

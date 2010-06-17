@@ -26,8 +26,28 @@ module Crunch
       end
     end
       
+    it "is a singleton" do
+      db1 = Database.connect 'crunch_test'
+      db2 = Database.connect 'crunch_test'
+      db1.should equal(db2)
+    end
+    
+    it "can take a symbol name" do
+      db1 = Database.connect 'crunch_test'
+      db2 = Database.connect :crunch_test
+      db1.should equal(db2)
+    end      
   
+    it "knows the name is a string even if a symbol is given" do
+      db = Database.connect :crunch_test
+      db.name.should == 'crunch_test'
+    end
+    
     describe "connection" do
+      before(:each) do
+        Database.class_variable_set(:@@databases, Hash.new)  # Clear the cache so we reinitialize
+      end
+      
       it "requires a name" do
         ->{d = Database.connect}.should raise_error(ArgumentError)
       end

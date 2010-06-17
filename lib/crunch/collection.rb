@@ -4,9 +4,7 @@ module Crunch
   # Database#collection method.
   class Collection 
     attr_reader :database, :name, :full_name
-    
-    private_class_method :new
-    
+        
     def <<(message)
     end
     
@@ -48,11 +46,6 @@ module Crunch
       end
     end
      
-    # Schedules an update to the database.  Passes all options to the update message.
-    # 
-    # @param [optional, H
-    
-    private
     # Takes the database, the name, and any options.
     def initialize(database, name)
       @database, @name = database, name

@@ -3,14 +3,10 @@ require File.dirname(__FILE__) + '/../spec_helper'
 module Crunch
   describe Collection do
     before(:each) do
-      @database = Database.connect('crunch_test')
-      @this = Collection.send(:new, @database, 'TestCollection')
+      @database = Database.connect 'crunch_test'
+      @this = Collection.new @database, 'TestCollection'
       @record = {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false}
       @record2 = {'num' => 7.5, 'bool' => false}
-    end
-    
-    it "cannot be created directly" do
-      ->{Collection.new}.should raise_error(NoMethodError)
     end
     
     it "knows its database" do
@@ -23,6 +19,12 @@ module Crunch
     
     it "knows its full name" do
       @this.full_name.should == "crunch_test.TestCollection"
+    end
+    
+    it "can create the collection if it doesn't exist" do
+      other_collection = @database.collection 'OtherCollection', create: true
+      db = Mongo::Connection.new.db('crunch_test')
+      db.collection('OtherCollection')
     end
     
     describe "inserting" do
