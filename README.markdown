@@ -34,7 +34,7 @@ All of these blocks are **callbacks.**  Javascript developers are probably snori
 
 Crunch requires an EventMachine reactor loop to be running.  If you are already writing an EM-driven application, or using Thin or another evented application server, great. EventMachine will already be running and Crunch will simply insert its own actions into the loop.  If your architecture is asynchronous, you may wish to set the global option `Crunch.synchronous = false` so that you don't have to worry about when to use bang methods. (See the following sections.)
 
-Otherwise, if EM _isn't_ running, the first call to `Database.connect` will start the EM reactor in a separate thread.  Any Crunch methods that talk to a MongoDB server (and several that don't) will automatically be run in that thread through the use of the `EventMachine.next_tick` method, with callbacks that set thread-safe attributes to indicate completion or state of readiness.  Most of the _synchronous_ methods in Crunch simply call the asynchronous forms, then use monitors to sleep until the object's state says it's done.
+Otherwise, if EM _isn't_ running, the first call to `Database.connect` will start the EM reactor in a separate thread.  Any Crunch methods that talk to a MongoDB server (and a few that don't) will run in that thread and set thread-safe attributes to indicate completion or state of readiness.  Most of the _synchronous_ methods in Crunch simply call the asynchronous forms, then use monitors to sleep until the object's state says it's done.
 
 It sounds complicated, but from the end user side we've tried to keep it simple.  This is the sanest way to build a library that has asynchronous components without forcing you to twist your entire application around the library.  (As an aside, it's also why we didn't use Ruby 1.9 fibers instead of threads.  It's just no good for an EM-agnostic library: to make it work properly, _your_ code would have to know when to yield or resume to the EM reactor's fiber, and then it starts to get ugly.)
 
@@ -99,7 +99,7 @@ In a highly concurrent Mongo environment, there is no assurance that a Document 
 
 The `.refresh!` method can also take a numeric parameter (e.g. `my_document.refresh! 0.1`) which sets an EventMachine timer to refresh the data every _n_ seconds until the document is garbage collected. Only one timer is set per Document, so you can alter the interval with subsequent calls or cancel it with `my_document.refresh! 0`.
 
-**IMPORTANT:** Crunch is thread-safe in the sense that changes to a Document's data are protected by mutex locks. However, for _your application logic_, trying to do computation with data that's constantly changing in the background can be fraught with peril. If you're going to turn on periodic refreshes, make sure you know what you're doing. (You could also use periodic timers and the :clone option together, but then you have a different problem in figuring out what to do with all those copies.)
+**IMPORTANT:** Crunch is thread-safe in the sense that changes to a Document's data are protected by mutex locks. However, for _your application logic_, trying to do computation with data that's constantly changing in the background can be fraught with peril. If you're going to turn on periodic refreshes, make sure you know what you're doing. (You could also use periodic timers and the :clone option together, but then you have a different problem in figuring out what to do with all those copies. Watch Disney's _Sorceror's Apprentice_ again before you do this.)
 
 ### Updates ###
 
@@ -113,7 +113,7 @@ Call `.save` to update MongoDB with the changed document. This will overwrite th
 
 #### Atomic Updates ####
 
-Crunch offers strong, simple support for Mongo's atomic update operators -- in fact, it's the preferred approach for changing documents.  The Document object has methods for every atomic operator:
+Crunch offers simple support for Mongo's atomic update operators -- in fact it's the preferred approach for changing documents.  The Document object has methods for every atomic operator:
 
     my_document.set name: 'Jill', age: 27
     my_document.inc :age, weight: 2  # Non-hash parameters will default to an increment of 1
