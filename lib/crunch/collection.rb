@@ -14,7 +14,7 @@ module Crunch
     # @param [Hash] data The field values to be inserted (_id will be generated if it isn't given)
     # @return [Document] Note: simply having this object doesn't _guarantee_ that it's in the database; it's just reasonable optimism
     def insert(data)
-      document = Document.send(:new, self, data)
+      document = Document.new database, self, data
       EventMachine.next_tick do
         message = InsertMessage.new(document)
         database << message
@@ -47,7 +47,7 @@ module Crunch
     end
      
     # Takes the database, the name, and any options.
-    def initialize(database, name)
+    def initialize(database, name, opts={})
       @database, @name = database, name
       @full_name = "#{database.name}.#{name}"
     end

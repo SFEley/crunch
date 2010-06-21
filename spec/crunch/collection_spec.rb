@@ -22,9 +22,10 @@ module Crunch
     end
     
     it "can create the collection if it doesn't exist" do
-      other_collection = @database.collection 'OtherCollection', create: true
+      pending
+      other_collection = Collection.new @database, 'OtherCollection', create: true
       db = Mongo::Connection.new.db('crunch_test')
-      db.collection('OtherCollection')
+      db.collection_names.should include('OtherCollection')
     end
     
     describe "inserting" do

@@ -13,8 +13,23 @@ module Crunch
       ->{Document.new}.should raise_error(ArgumentError)
     end
     
-    it "requires a collection name" do
+    it "requires a collection" do
       ->{Document.new @database}.should raise_error(ArgumentError)
+    end
+    
+    it "can take a collection name" do
+      @this.collection.full_name.should == 'crunch_test.TestCollection'
+    end
+    
+    it "can take a collection object" do
+      that = Document.new @database, Collection.new(@database, 'TestCollection'), foo: 'bar'
+      that.collection.full_name.should == 'crunch_test.TestCollection'
+    end
+    
+    it "can take a Group and derive its collection"
+    
+    it "throws an error if you give it a collection object it doesn't understand" do
+      ->{Document.new @database, []}.should raise_error(DocumentError, /requires a collection/)
     end
     
     it "knows its collection name" do

@@ -43,6 +43,23 @@ module Crunch
       db.name.should == 'crunch_test'
     end
     
+    describe "collections" do
+      
+      before(:each) do
+        pending
+        @database = Database.connect :crunch_test
+      end
+      
+      it "can be retrieved" do
+        @database.collection('TestCollection').should be_a(Collection)
+      end
+      
+      it "can be listed" do
+        @database.collections.should include('TestCollection')
+      end
+      
+    end
+    
     describe "connection" do
       before(:each) do
         Database.class_variable_set(:@@databases, Hash.new)  # Clear the cache so we reinitialize
@@ -73,11 +90,7 @@ module Crunch
           d = Database.connect 'foo', port: 71072
         end
       end
-      
-      it "keeps a connection" do
-        d = Database.connect 'crunch_test'
-      end
-        
+              
 
       it "accepts a username"
 
@@ -107,15 +120,15 @@ module Crunch
         ->{@this << nil}.should raise_error(DatabaseError, /must be a Message/)
       end
       
-      it "passes it to the connection" do
-        Message.any_instance.expects(:deliver).returns("foobar")
-        tick until @this.connection.is_a?(EventMachine::Connection)
-        tick do
-          @this.connection.expects(:send_data).with("foobar")
-          @this << Message.new
-        end
-      end
-      
+      # it "passes it to the connection" do
+      #    Message.any_instance.expects(:deliver).returns("foobar")
+      #    tick until @this.connection.is_a?(EventMachine::Connection)
+      #    tick do
+      #      @this.connection.expects(:send_data).with("foobar")
+      #      @this << Message.new
+      #    end
+      #  end
+       
       it "returns true" do
         ->{@this << Message.new}.call.should == true
       end
