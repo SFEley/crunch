@@ -27,11 +27,17 @@ module Crunch
       @this.full_collection_name.should == 'crunch_test.TestCollection'
     end
         
-    it "can take a list of fields at initialization"
+    it "can take a list of fields at initialization" do
+      pending
+    end
     
-    it "can set query parameters at initialization"
+    it "can set query parameters at initialization" do
+      pending
+    end
     
-    it "can read query specs later"
+    it "can read query specs later" do
+      pending
+    end
   
   end
 end

@@ -92,23 +92,42 @@ module Crunch
       end
               
 
-      it "accepts a username"
+      it "accepts a username" do
+        pending
+      end
 
-      it "accepts a password"
+      it "accepts a password" do
+        pending
+      end
 
-      it "throws an error if it can't make a read connection"
+      it "throws an error if it can't make a read connection" do
+        pending
+      end
 
-      it "tries to authenticate on 'admin' if the option is given"
+      it "tries to authenticate on 'admin' if the option is given" do
+        pending
+      end
 
-      it "throws an error if it can't authenticate"
+      it "throws an error if it can't authenticate" do
+        pending
+      end
 
-      it "creates the database if not told otherwise"
+      it "creates the database if not told otherwise" do
+        pending
+      end
 
-      it "does not create the database if told not to"
+      it "does not create the database if told not to" do
+        pending
+      end
 
-      it "returns a Database object when all is well"
+      it "returns a Database object when all is well" do
+        pending
+      end
 
-      it "returns the same object if called later with the same parameters"
+      it "returns the same object if called later with the same parameters" do
+        pending
+      end
+      
     end
   
     describe "sending data" do

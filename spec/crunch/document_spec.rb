@@ -26,7 +26,10 @@ module Crunch
       that.collection.full_name.should == 'crunch_test.TestCollection'
     end
     
-    it "can take a Group and derive its collection"
+    it "can take a Group and derive its collection" do
+      pending
+    end
+
     
     it "throws an error if you give it a collection object it doesn't understand" do
       ->{Document.new @database, []}.should raise_error(DocumentError, /requires a collection/)
