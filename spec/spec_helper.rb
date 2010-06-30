@@ -33,7 +33,7 @@ Spec::Runner.configure do |config|
   
   config.before(:all) do
     @verifier_db = Mongo::Connection.new.db('crunch_test') # For verification while we bootstrap
-    @verifier_db.create_collection 'TestCollection'
+    @verifier_collection = @verifier_db.create_collection 'TestCollection'
   end
     
     

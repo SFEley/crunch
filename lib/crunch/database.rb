@@ -53,6 +53,17 @@ module Crunch
     
     private_class_method :new
     
+    # Returns a Crunch::Document after it has retrieved itself from the database.
+    #
+    # @param collection<String> The name of the collection to retrieve from
+    # @param id_or_query<Object, Hash> Either the document's ID _or_ a hash of query options
+    def document(collection, id_or_query)
+    end
+
+    
+
+    
+    
   private
     
     def initialize(name, host, port)

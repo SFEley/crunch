@@ -153,6 +153,7 @@ module Crunch
       end
         
     end
+
     
     describe "operation" do
       before(:each) do
@@ -161,6 +162,11 @@ module Crunch
       
       it "has a command collection" do
         @this.command.should be_a(CommandCollection)
+      end
+      
+      # For more detailed testing, see document/retrieval_spec.rb
+      it "can return a document" do
+        @this.should respond_to(:document)
       end
       
     end

@@ -18,4 +18,23 @@ module Crunch
   autoload :InsertMessage, 'crunch/messages/insert_message'
   autoload :UpdateMessage, 'crunch/messages/update_message'
   
+  # Utility methods
+  
+  # @overload oid
+  #   Returns a new BSON::ObjectID from the current process ID and timestamp.
+  #   @return [BSON::ObjectID]
+  #
+  # @overload oid(val)
+  #   Returns a BSON::ObjectID from a given string.
+  #   @param [String] val An ObjectID in string form, e.g. '4c2b91d33f1651039f000002'
+  #   @return [BSON::ObjectID]
+  def self.oid(val=nil)
+    if val.nil?
+      BSON::ObjectID.new
+    else
+      BSON::ObjectID.from_string(val)
+    end
+  end
+
+  
 end
