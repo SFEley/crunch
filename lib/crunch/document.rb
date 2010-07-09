@@ -9,6 +9,12 @@ module Crunch
     def collection_name
       @collection.full_name
     end
+    
+    # Gets a document from the database. This is most often called indirectly from a Database, Collection or Group's `.document` method.
+    #
+    # @param [Crunch::Database] database The MongoDB database that will store this document (required)
+    # @param [Crunch::Collection, String] collection An existing collection in the database; either the object or its name (required)
+    # @param [Hash, String, BSON::ByteBuffer] data Sets the hash values -- either directly, or after deserializing if a BSON binary string is provided
         
     # When called by the user, produces an unsaved document that won't show up in MongoDB until you call {#save} or {#update}. Depending on your use case, this often isn't
     # what you want.  Consider {Database#insert} or {Collection#insert} instead.
@@ -27,8 +33,8 @@ module Crunch
       
       # Make sure we have an ID
       case data
-      when Hash then super(Hash['_id', BSON::ObjectID.new].merge!(data))
-      when nil then super(Hash['_id', BSON::ObjectID.new])
+      when Hash then super(Hash['_id', (data.delete(:id) || Crunch.oid)].merge!(data))
+      when nil then super(Hash['_id', Crunch.oid])
       when String, BSON::ByteBuffer then super(data)  # We'll assume the binary data came from Mongo and has an ID in it
       else raise DocumentError, "Crunch::Document can only be initialized from a hash or binary data! You supplied: #{data}"
       end

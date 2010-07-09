@@ -45,7 +45,16 @@ module Crunch
         database << message
       end
     end
-     
+    
+    # Returns a Crunch::Document after it has retrieved itself from the database.
+    #
+    # @param collection<String> The name of the collection to retrieve from
+    # @param id_or_query<Object, Hash> Either the document's ID _or_ a hash of query options
+    # @return Crunch::Document
+    def document(id_or_query)
+    end
+    
+    
     # Takes the database, the name, and any options.
     def initialize(database, name, opts={})
       @database, @name = database, name

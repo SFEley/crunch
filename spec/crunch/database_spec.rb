@@ -169,6 +169,10 @@ module Crunch
         @this.should respond_to(:document)
       end
       
+      it "can return a collection" do
+        @this.collection('TestCollection').should be_a(Collection)
+      end
+      
     end
 
     

@@ -47,6 +47,17 @@ module Crunch
       @this['_id'].should be_a(BSON::ObjectID)
     end
     
+    it "can take an ID as a parameter" do
+      oid = Crunch.oid
+      that = Document.new @database, 'TestCollection', foo: 'bar', id: oid
+      that['_id'].should == oid
+    end
+      
+    it "can take an ID of any form" do
+      that = Document.new @database, 'TestCollection', foo: 'bar', too: :tar, slappy: 17, id: 'garbanzo'
+      that['_id'].should == 'garbanzo'
+    end
+    
     it "takes a binary string as its values" do
       this = Document.new @database, 'TestCollection', BSON_STRING
       this.should include("foo" => 'bar', "too" => :tar, "slappy" => 17)

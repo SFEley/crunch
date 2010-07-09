@@ -4,8 +4,19 @@ module Crunch
   describe Document, "retrieval" do
     before(:each) do
       @database = Database.connect 'crunch_test'
+      @collection = @database.collection 'TestCollection'
       @verifier_collection.insert '_id' => 17, 'foo' => 'bar', 'soo' => 'sar', 'floaty' => 11.59
     end
+    
+    it "requires a database" do
+      ->{Document.retrieve}.should raise_error(ArgumentError)
+    end
+
+    it "requires a collection" do
+      ->{Document.retrieve @database}.should raise_error(ArgumentError)
+    end
+    
+    
     
     describe "from the database" do
 
@@ -24,6 +35,23 @@ module Crunch
       end
         
     end
+    
+    describe "from a collection" do
+      before(:each) do
+        @collection = @database.collection 'TestCollection'
+      end
+      
+      describe "(synchronous)" do
+        it "returns a document if one is found" do
+          @collection.document(17).should be_a(Document)
+        end
+        
+        it "returns nil if nothing is found" do
+          @collection.document('bah!').should be_nil
+        end
+      end
+    end
+    
   
   end
 end
