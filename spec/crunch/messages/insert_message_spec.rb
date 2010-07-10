@@ -7,27 +7,28 @@ module Crunch
     
     before(:each) do
       @database = Database.connect 'crunch_test'
-      @document = Document.new @database, 'TestCollection', '_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false
-      @this = InsertMessage.new(@document)
+      @collection = @database.collection 'TestCollection'
+      @fieldset = Fieldset.new '_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false
+      @this = InsertMessage.new(@collection, @fieldset)
     end
     
     it_should_behave_like "a Message"
-    
-    it "requires a document" do
+
+    it "requires a collection" do
       ->{InsertMessage.new}.should raise_error(ArgumentError)
     end
-
-    it "can take a document on creation" do
-      @this.document.should == @document
+    
+    it "requires a fieldset" do
+      ->{InsertMessage.new @collection}.should raise_error(ArgumentError)
     end
         
-    it "can modify the document after the fact" do
-      @this.document.merge! zoo: :zar
-      @this.document.should == {'_id' => 17, 'foo' => 'bar', 'num' => 5.2, 'bool' => false, 'zoo' => :zar}
+    it "can modify the fieldset after the fact" do
+      @this.fieldset.merge! zoo: :zar
+      @this.fieldset.should == {'_id' => 17, 'foo' => 'bar', 'num' => 5.2, 'bool' => false, 'zoo' => :zar}
     end
     
-    it "raises an error if the document doesn't have an _id" do
-      @this.document.delete('_id')
+    it "raises an error if the fieldset doesn't have an _id" do
+      @this.fieldset.delete('_id')
       ->{@this.deliver}.should raise_error(MessageError, /_id field/)
     end
     

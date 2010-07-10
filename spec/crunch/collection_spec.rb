@@ -4,9 +4,13 @@ module Crunch
   describe Collection do
     before(:each) do
       @database = Database.connect 'crunch_test'
-      @this = Collection.new @database, 'TestCollection'
+      @this = @database.collection 'TestCollection'
       @record = {'_id' => 17, foo: 'bar', 'num' => 5.2, 'bool' => false}
       @record2 = {'num' => 7.5, 'bool' => false}
+    end
+    
+    it "must be instantiated from the database" do
+      ->{Collection.new}.should raise_error(NoMethodError)
     end
     
     it "knows its database" do

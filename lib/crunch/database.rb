@@ -53,14 +53,7 @@ module Crunch
     
     private_class_method :new
     
-    # Returns a Crunch::Document after it has retrieved itself from the database.
-    #
-    # @param collection<String> The name of the collection to retrieve from
-    # @param id_or_query<Object, Hash> Either the document's ID _or_ a hash of query options
-    # @return Crunch::Document
-    def document(collection, id_or_query)
-    end
-
+ 
     # Returns a Crunch::Collection from the database. Really just a shortcut for {Collection::new}.
     #
     # @param [String] name The base name of the collection to retrieve
