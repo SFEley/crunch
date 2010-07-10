@@ -16,6 +16,10 @@ module Crunch
       ->{Document.retrieve @database}.should raise_error(ArgumentError)
     end
     
+    it "take an id" do
+      this = Document.retrieve 17
+      this['foo'].should == 'bar'
+    end
     
     
     describe "from the database" do
