@@ -58,7 +58,7 @@ module Crunch
     #
     # @param [String] name The base name of the collection to retrieve
     def collection(name)
-      Collection.new self, name
+      Collection.send :new, self, name
     end
       
 

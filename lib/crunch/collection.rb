@@ -14,12 +14,13 @@ module Crunch
     # @param [Hash] data The field values to be inserted (_id will be generated if it isn't given)
     # @return [Document] Note: simply having this object doesn't _guarantee_ that it's in the database; it's just reasonable optimism
     def insert(data)
-      document = Document.send :new, self, data
+      fieldset = Fieldset.new data
+      fieldset['_id'] ||= Crunch.oid
       EventMachine.next_tick do
-        message = InsertMessage.new(document)
+        message = InsertMessage.new(self, fieldset)
         database << message
       end
-      document
+      Document.send :new, self, data: fieldset
     end
     
     # Updates multiple records in the collection with the given modifiers. Defaults 'multi'
@@ -52,9 +53,16 @@ module Crunch
     # @param id_or_query<Object, Hash> Either the document's ID _or_ a hash of query options
     # @return Crunch::Document
     def document(id_or_query)
-      Document.send :new, self, id_or_query
+      if id_or_query.kind_of?(Hash)
+        Document.send :new, self, query: id_or_query
+      else
+        Document.send :new, self, id: id_or_query
+      end
     end
     
+    private_class_method :new
+    
+    private
     
     # Takes the database, the name, and any options.
     def initialize(database, name, opts={})

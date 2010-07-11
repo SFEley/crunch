@@ -8,7 +8,7 @@ module Crunch
       @verifier_collection.insert '_id' => 7, foo: 'bar', too: :tar, slappy: 17
       @database = Database.connect 'crunch_test'
       @collection = @database.collection 'TestCollection'
-      @this = @collection.document 7
+      @this = Document.send :new, @collection, id: 7, data: {foo: 'bar', too: :tar, slappy: 17}
     end
     
     it "must be instantiated from a collection" do
@@ -17,6 +17,18 @@ module Crunch
     
     it "knows its collection name" do
       @this.collection_name.should == 'crunch_test.TestCollection'
+    end
+    
+    it "can take an ID" do
+      @this['_id'].should == 7
+    end
+    
+    it "has a simple ID method" do
+      @this.id.should == @this['_id']
+    end
+    
+    it "can take other data" do
+      @this['too'].should == :tar
     end
      
     it "knows how to serialize itself" do
