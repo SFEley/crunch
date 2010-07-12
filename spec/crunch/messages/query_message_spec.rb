@@ -1,5 +1,5 @@
 require_relative '../../spec_helper'
-require_relative '../../shared_examples/message'
+require_relative '../../shared_examples/message_shared_spec'
 
 module Crunch
   describe QueryMessage do
@@ -7,9 +7,9 @@ module Crunch
     FIELDHASH = " \x00\x00\x00\x10_id\x00\x01\x00\x00\x00\x10foo\x00\x01\x00\x00\x00\x10zoo\x00\x01\x00\x00\x00\x00"
     
     before(:each) do
-      @collection = stub full_name: 'crunch_test.TestCollection'
+      @sender = stub collection_name: 'crunch_test.TestCollection'
       
-      @this = QueryMessage.new(@collection, 
+      @this = QueryMessage.new(@sender, 
                                 query: {foo: :bar},
                                 fields: [:foo, 'zoo'],
                                 skip: 11,
@@ -18,10 +18,14 @@ module Crunch
     
     it_should_behave_like "a Message"
 
-    it "requires a collection" do
+    it "requires a sender" do
       ->{QueryMessage.new}.should raise_error(ArgumentError)
     end
 
+    it "knows its sender" do
+      @this.sender.should == @sender
+    end
+    
     it "knows its collection name" do
       @this.collection_name.should == "crunch_test.TestCollection"
     end
@@ -56,7 +60,7 @@ module Crunch
     end
     
     it "defaults skipping to 0" do
-      that = QueryMessage.new(@collection)
+      that = QueryMessage.new(@sender)
       that.skip.should == 0
     end
     
@@ -70,7 +74,7 @@ module Crunch
     end
     
     it "defaults the limit to 0" do
-      that = QueryMessage.new(@collection)
+      that = QueryMessage.new(@sender)
       that.limit.should == 0
     end
     
