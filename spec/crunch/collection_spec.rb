@@ -66,7 +66,7 @@ module Crunch
 
       it "inserts the record into Mongo" do
         @this.insert @record
-        sleep 0.5
+        sleep 1
         verifier.find_one('_id' => 17).should == {'_id' => 17, 'foo' => 'bar', 'num' => 5.2, 'bool' => false}
       end
       

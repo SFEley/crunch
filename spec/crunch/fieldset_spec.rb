@@ -15,17 +15,50 @@ module Crunch
       @this.keys.should == ['foo', 'too', 'slappy']
     end
     
-    it "stringifies new keys when added" do
-      @this[:yoo] = :yar
-      @this[5] = 5
-      @this.should include({'yoo' => :yar, '5' => 5}) 
+    it "is immutable" do
+      ->{@this[:yoo] = :yar}.should raise_error(FieldsetError, /immutable/)
     end
     
-    it "stringifies new keys when merged" do
-      @this.merge! :cool => :car
-      @this.should include("cool" => :car)
+    it "doesn't clear" do
+      ->{@this.clear}.should raise_error(FieldsetError, /immutable/)
     end
     
+    it "doesn't delete" do
+      ->{@this.delete(:foo)}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't delete_if" do
+      ->{@this.delete_if {true}}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't merge!" do
+      ->{@this.merge! zoo: :zar}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't rehash" do
+      ->{@this.rehash}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't reject!" do
+      ->{@this.reject! {true}}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't replace" do
+      ->{@this.replace foo: 'car'}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't shift" do
+      ->{@this.shift}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't store" do
+      ->{@this.store :zoo, :zar}.should raise_error(FieldsetError, /immutable/)
+    end
+    
+    it "doesn't update" do
+      ->{@this.update zoo: :zar}.should raise_error(FieldsetError, /immutable/)
+    end
+        
     it "takes a binary string as its values" do
       this = Fieldset.new(BSON_STRING)
       this.should == {"foo" => 'bar', "too" => :tar, "slappy" => 17}

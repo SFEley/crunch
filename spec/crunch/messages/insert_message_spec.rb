@@ -22,14 +22,9 @@ module Crunch
       ->{InsertMessage.new @collection}.should raise_error(ArgumentError)
     end
         
-    it "can modify the fieldset after the fact" do
-      @this.fieldset.merge! zoo: :zar
-      @this.fieldset.should == {'_id' => 17, 'foo' => 'bar', 'num' => 5.2, 'bool' => false, 'zoo' => :zar}
-    end
-    
     it "raises an error if the fieldset doesn't have an _id" do
-      @this.fieldset.delete('_id')
-      ->{@this.deliver}.should raise_error(MessageError, /_id field/)
+      that = InsertMessage.new @collection, Fieldset.new(foo: 'bar', 'num' => 5.2, 'bool' => false)
+      ->{that.deliver}.should raise_error(MessageError, /_id field/)
     end
     
     describe "body" do

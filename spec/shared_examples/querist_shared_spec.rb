@@ -25,5 +25,6 @@ shared_examples_for "a Querist" do
       @database.expects(:<<).with(instance_of(Crunch::QueryMessage))
       @this.refresh
     end
+     
   end
 end

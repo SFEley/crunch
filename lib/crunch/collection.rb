@@ -14,8 +14,11 @@ module Crunch
     # @param [Hash] data The field values to be inserted (_id will be generated if it isn't given)
     # @return [Document] Note: simply having this object doesn't _guarantee_ that it's in the database; it's just reasonable optimism
     def insert(data)
-      fieldset = Fieldset.new data
-      fieldset['_id'] ||= Crunch.oid
+      if data['_id']
+        fieldset = Fieldset.new data
+      else
+        fieldset = Fieldset.new data.merge('_id' => Crunch.oid)
+      end
       EventMachine.next_tick do
         message = InsertMessage.new(self, fieldset)
         database << message
@@ -36,8 +39,11 @@ module Crunch
     # @option opts [Boolean] :multi (true) If true, updates ALL documents matching the selector rather than the first
     def update(opts={})
       update = {}
-      update[:selector] = opts[:selector].is_a?(Fieldset) ? opts[:selector] : Fieldset.new(opts[:selector])
-      update[:selector].merge!('_id' => opts[:id]) if opts.has_key?(:id)
+      if opts[:id]
+        update[:selector] = Fieldset.new (opts[:selector] || {}).merge('_id' => opts[:id])
+      else
+        update[:selector] = Fieldset.new opts[:selector]
+      end
       update[:update] = opts[:update].is_a?(Fieldset) ? opts[:update] : Fieldset.new(opts[:update])
       update[:upsert] = opts[:upsert] if opts.has_key?(:upsert)
       update[:multi] = opts.has_key?(:multi) ? opts[:multi] : true
