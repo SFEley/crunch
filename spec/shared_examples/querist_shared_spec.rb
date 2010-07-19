@@ -21,10 +21,20 @@ shared_examples_for "a Querist" do
   end
   
   describe "querying" do
+    before(:each) do
+      @result = Fieldset.new '_id' => 5.5, 'foo' => :bar
+    end
+    
     it "goes to the database" do
       @database.expects(:<<).with(instance_of(Crunch::QueryMessage))
       @this.refresh
     end
      
+    it "gets data back from the server" do
+      tick do
+        @this.set_deferred_status(:succeeded, @result)
+        @this.expects(:receive_data).with(@result)
+      end
+    end
   end
 end

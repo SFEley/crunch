@@ -18,6 +18,10 @@ module Crunch
       @opcode
     end
     
+    # The request ID for this specific message.
+    def request_id
+      @request_id ||= self.class.request_id
+    end
         
     # The content of the message. Will be overridden in every subclass with more interesting behavior.
     def body
@@ -27,7 +31,7 @@ module Crunch
     # Puts everything together.
     def deliver
       header = [(body.length + 16), 
-        self.class.request_id,
+        request_id,
         0,
         self.class.opcode].pack('VVVV')
       "#{header}#{body}"

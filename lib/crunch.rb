@@ -3,6 +3,7 @@ require 'eventmachine'
 
 module Crunch
   # Hey, it's Ruby 1.9.  Autoload is safe again!  Spread the word!
+  autoload :Connection, 'crunch/connection'
   autoload :Database, 'crunch/database'
   autoload :Group, 'crunch/group'
   autoload :Collection, 'crunch/collection'

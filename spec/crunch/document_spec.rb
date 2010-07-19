@@ -10,7 +10,7 @@ module Crunch
       @verifier_collection.insert '_id' => 7, foo: 'bar', too: :tar, slappy: 17
       @database = Database.connect 'crunch_test'
       @collection = @database.collection 'TestCollection'
-      @this = Document.send :new, @collection, id: 7, data: {foo: 'bar', too: :tar, slappy: 17}
+      @this = Document.send :new, @collection, data: {'_id' => 7, foo: 'bar', too: :tar, slappy: 17}
     end
     
     it_should_behave_like "a Querist"
@@ -37,6 +37,9 @@ module Crunch
       "#{@this}".should == BSON_WITH_ID
     end
     
+    it "knows when it's ready" do
+      @this.should be_ready
+    end      
 
   end
 end

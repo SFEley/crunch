@@ -6,8 +6,15 @@
 # * The class must define a #receive_data method that accepts the Mongo document data (as a Fieldset) and does something with it. (Replaces its own data in the case of a Document, or creates a new Document in its collection for a Group.)
 module Crunch
   module Querist
+    include EventMachine::Deferrable
+    
     attr_reader :database, :collection, :query, :fields, :limit, :skip
 
+    # The code that runs when we get data back from the database
+    @success = Proc.new do |mongo_data|
+      receive_data mongo_data
+    end
+    
     def initialize(collection, options)
       @collection = collection
       @database = @collection.database
@@ -16,13 +23,6 @@ module Crunch
       @fields = options[:fields]
       @limit = options[:limit]
       @skip = options[:skip]
-    
-      # Initialize the object with any data if it exists. (This should only matter for Documents, not Groups.)
-      if options[:data]
-        super(options[:data])
-      else
-        super()
-      end
     end
   
     # The fully qualified "database.collection" name.  (We query the Collection for it.)
@@ -33,9 +33,12 @@ module Crunch
     # Reloads (or loads for the first time) the current data. 
     def refresh
       message = QueryMessage.new self, query: query, fields: fields, limit: limit, skip: skip
+      callback @success
       EventMachine.next_tick do
         database << message
       end
     end
+    
+    
   end
 end  

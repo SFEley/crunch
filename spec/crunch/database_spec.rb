@@ -130,8 +130,10 @@ module Crunch
       
     end
   
-    describe "sending data" do
+    describe "sending messages" do
       before(:each) do
+        @sender = stub "Document"
+        @message = stub "QueryMessage", sender: @sender, request_id: 1337, deliver: true
         @this = Database.connect 'crunch_test' && tick
       end
 
@@ -149,9 +151,17 @@ module Crunch
       #  end
        
       it "returns true" do
-        ->{@this << Message.new}.call.should == true
+        response = @this << @message
+        response.should == true
       end
-        
+      
+      it "pings the sender back on replies" do
+        reply = {reply_id: 1337}
+        @sender.expects(:receive_data).with(reply)
+        @this << @message
+        @this.receive_reply(reply)
+      end
+      
     end
 
     

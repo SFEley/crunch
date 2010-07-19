@@ -15,6 +15,7 @@ module Crunch
     @@databases ||= {}
     
     attr_reader :name, :host, :port, :command, :connection
+          
     
     # Returns a database object from which you can query or obtain 
     # Crunch::Collections. An immediate connection will be made to verify
@@ -46,9 +47,19 @@ module Crunch
     # @param [Message] message An instance of a Message subclass
     # @return true
     def <<(message)
-      raise DatabaseError, "The data to be sent must be a Message class; instead you sent a #{message.class}" unless message.kind_of?(Message)
-      connection.send_data(message.deliver)
+      raise DatabaseError, "The data to be sent must be a Message class; instead you sent a #{message.class}" unless message.respond_to?(:deliver)
+      
+      if message.respond_to?(:sender) 
+        @senders[message.request_id] = {sender: message.sender, sent_at: Time.now}
+      end
+      
+      EventMachine.defer ->{message.deliver}, ->message_data {connection.send_data(message_data)}
       true
+    end
+    
+    # Receives a deserialized reply message from MongoDB and routes it to the original sender.
+    def receive_reply(reply)
+      sender(reply[:reply_id]).receive_data(reply)
     end
     
     private_class_method :new
@@ -62,13 +73,17 @@ module Crunch
     end
       
 
-    
 
     
     
   private
+    # Given a request ID from a query response, returns the object that originally sent the message.
+    def sender(request_id)
+      @senders[request_id] && @senders[request_id][:sender]
+    end
     
     def initialize(name, host, port)
+      @senders = Hash.new
       @name, @host, @port = name, host, port
       @command = CommandCollection.send(:new, self)
       @connection = :placeholder   # Just make a placeholder for the thing for closure purposes
