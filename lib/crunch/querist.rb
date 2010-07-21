@@ -10,10 +10,6 @@ module Crunch
     
     attr_reader :database, :collection, :query, :fields, :limit, :skip
 
-    # The code that runs when we get data back from the database
-    @success = Proc.new do |mongo_data|
-      receive_data mongo_data
-    end
     
     def initialize(collection, options)
       @collection = collection
@@ -33,7 +29,7 @@ module Crunch
     # Reloads (or loads for the first time) the current data. 
     def refresh
       message = QueryMessage.new self, query: query, fields: fields, limit: limit, skip: skip
-      callback @success
+      callback {|mongo_data| receive_data mongo_data}
       EventMachine.next_tick do
         database << message
       end
