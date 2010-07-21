@@ -2,8 +2,8 @@ require File.dirname(__FILE__) + '/../spec_helper'
 
 module Crunch
   describe Fieldset do
-    BSON_STRING = "+\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x0Etoo\x00\x04\x00\x00\x00tar\x00\x10slappy\x00\x11\x00\x00\x00\x00"
     before(:each) do
+      @bson_string = "+\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x0Etoo\x00\x04\x00\x00\x00tar\x00\x10slappy\x00\x11\x00\x00\x00\x00"
       @this = Fieldset.new(foo: 'bar', too: :tar, slappy: 17)
     end
     
@@ -60,12 +60,12 @@ module Crunch
     end
         
     it "takes a binary string as its values" do
-      this = Fieldset.new(BSON_STRING)
+      this = Fieldset.new(@bson_string)
       this.should == {"foo" => 'bar', "too" => :tar, "slappy" => 17}
     end
     
     it "takes a ByteBuffer as its values" do
-      this = Fieldset.new(BSON::ByteBuffer.new(BSON_STRING))
+      this = Fieldset.new(BSON::ByteBuffer.new(@bson_string))
       this.should == {"foo" => 'bar', "too" => :tar, "slappy" => 17}
     end
     
@@ -74,7 +74,7 @@ module Crunch
     end
     
     it "knows how to serialize itself" do
-      "#{@this}".should == BSON_STRING
+      "#{@this}".should == @bson_string
     end
     
     

@@ -117,7 +117,9 @@ module Crunch
 
         it "defaults the multi value to true if not given" do
           UpdateMessage.expects(:new).with(instance_of(Collection), has_entry(multi: true))
-          @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})        
+          tick do
+            @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}})        
+          end
         end
         
       end

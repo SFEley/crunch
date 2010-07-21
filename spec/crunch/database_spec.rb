@@ -46,15 +46,14 @@ module Crunch
     describe "collections" do
       
       before(:each) do
-        pending
         @database = Database.connect :crunch_test
       end
       
-      it "can be retrieved" do
+      it "can be retrieved", pending: true do
         @database.collection('TestCollection').should be_a(Collection)
       end
       
-      it "can be listed" do
+      it "can be listed", pending: true do
         @database.collections.should include('TestCollection')
       end
       

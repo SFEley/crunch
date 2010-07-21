@@ -1,8 +1,7 @@
 $LOAD_PATH.unshift(File.dirname(__FILE__))
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 require 'crunch'
-require 'spec'
-require 'spec/autorun'
+require 'rspec/autorun'
 require 'mocha'
 require 'mongo'  # For verification only!
 
@@ -28,7 +27,7 @@ def verifier
   @verifier_db.collection('TestCollection')
 end
 
-Spec::Runner.configure do |config|
+Rspec.configure do |config|
   config.mock_with :mocha
   
   config.before(:all) do
