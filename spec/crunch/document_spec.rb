@@ -1,5 +1,4 @@
 require File.dirname(__FILE__) + '/../spec_helper'
-require_relative '../shared_examples/querist_shared_spec'
 
 module Crunch
   describe Document do
@@ -12,8 +11,6 @@ module Crunch
       @collection = @database.collection 'TestCollection'
       @this = Document.send :new, @collection, data: {'_id' => 7, foo: 'bar', too: :tar, slappy: 17}
     end
-    
-    it_should_behave_like "a Querist"
     
     it "must be instantiated from a collection" do
       ->{Document.new}.should raise_error(NoMethodError)

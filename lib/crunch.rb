@@ -8,6 +8,7 @@ module Crunch
   autoload :Group, 'crunch/group'
   autoload :Collection, 'crunch/collection'
   autoload :CommandCollection, 'crunch/collections/command_collection'
+  autoload :Querist, 'crunch/querist'
   autoload :Fieldset, 'crunch/fieldset'
   autoload :Document, 'crunch/document'
   

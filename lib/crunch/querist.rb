@@ -1,24 +1,72 @@
-# Consolidates the attributes and methods shared by classes that are able to make MongoDB queries and 
-# receive document data from the server. (I.e., {Crunch::Document} and {Crunch::Group}.)  This places
-# a few expectations on the class:
+# Defines a helper object that serves as an intermediary between Documents or
+# Groups and the Database.  It creates a query to retrieve whatever data's
+# asked for and sends it to the Database, them sets up callbacks to receive the
+# response. This is an abstract class; by itself it does nothing useful with
+# the responses, but subclasses will parse the responses and replace data
+# within the Document or Group that owns them. Querists are short-lived, and
+# die off after their request has succeeded or failed.
 #
-# * The class must set or pass any query-relevant options up through its initializer;
-# * The class must define a #receive_data method that accepts the Mongo document data (as a Fieldset) and does something with it. (Replaces its own data in the case of a Document, or creates a new Document in its collection for a Group.)
+# This separates concerns rather nicely. Documents that are prepopulated with
+# data (say, from a Group) don't have to worry about how to talk to the
+# Database.  And the Database doesn't have to care whether it's routing
+# traffic for a document or a group.  It's talking to a Querist, and what
+# happens next is the Querist's problem.  Think of it like a mortgage broker,
+# only without the sorts of incentives that can bring down the global economy.
 module Crunch
-  module Querist
+  class Querist
     include EventMachine::Deferrable
     
     attr_reader :database, :collection, :query, :fields, :limit, :skip
 
-    
-    def initialize(collection, options)
-      @collection = collection
+    # Our base Querist is created with whatever information is necessary to 
+    # construct a working MongoDB query. Subclasses will also accept the
+    # parameters to tie responses to their owners.
+    #
+    # @param [Collection] collection We need to know where to ask
+    # @param [Fieldset] query We must have _something_ to ask the Database
+    # @option [Array] fields Only retrieve these fields from documents
+    # @option [Integer] limit Only retrieve this many records
+    # @option [Integer] skip Start at this position in the DB's matching records
+    def initialize(collection, query, options={})
+      super
+      @collection, @query = collection, query
       @database = @collection.database
     
-      @query = options[:query]
       @fields = options[:fields]
       @limit = options[:limit]
       @skip = options[:skip]
+
+      @message = QueryMessage.new self, 
+                                  query: @query, 
+                                  fields: @fields, 
+                                  limit: @limit, 
+                                  skip: @skip
+      
+      
+      # Parse the reply's header and pass it on. We declare this in the initializer
+      # because we want it to be the first callback that's run; we either fail early
+      # or send slightly more refined data to our subclasses.
+      #
+      # @see http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol
+      callback do |mongo_data| 
+        message_length,
+        request_id,
+        response_to,
+        op_code,
+        response_flag,
+        cursor_id,
+        starting_from,
+        number_returned,
+        documents = mongo_data.unpack('VVVVVQVVa*')
+        
+        # Fail early, fail often
+        fail "Incomplete reply! Expected #{mongo_data.bytesize} bytes, got #{message_length}." unless message_length == mongo_data.bytesize
+        
+        fail "Wrong reply! The handler for request #{@message.request_id} got an answer to request #{response_to}." unless response_to == @message.request_id
+        
+        fail "MongoDB reports query failure. Response code: #{response_flag}" unless response_flag == 0
+        
+      end
     end
   
     # The fully qualified "database.collection" name.  (We query the Collection for it.)
@@ -28,12 +76,13 @@ module Crunch
   
     # Reloads (or loads for the first time) the current data. 
     def refresh
-      message = QueryMessage.new self, query: query, fields: fields, limit: limit, skip: skip
-      callback {|mongo_data| receive_data mongo_data}
       EventMachine.next_tick do
         database << message
       end
     end
+    
+    protected
+    
     
     
   end

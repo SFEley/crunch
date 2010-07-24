@@ -1,3 +1,5 @@
+require_relative 'querist'
+
 module Crunch
   
   # Represents a collection within a database.  Cannot be created directly; instead, use the

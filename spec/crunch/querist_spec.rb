@@ -1,5 +1,15 @@
+require File.dirname(__FILE__) + '/../spec_helper'
+
 module Crunch
-  shared_examples_for "a Querist" do
+  describe Querist do
+    before(:each) do
+      @database = stub "Database"
+      @collection = stub "Collection", database: @database, full_name: 'crunch_test.TestCollection'
+      @owner = stub "Document or Group", collection: @collection
+      @query = Fieldset.new '_id' => 7
+      @this = Querist.new @owner, @query
+      
+    end
   
     it "knows its collection name" do
       @this.collection_name.should == 'crunch_test.TestCollection'
@@ -32,9 +42,10 @@ module Crunch
       end
      
       it "gets data back from the server" do
+        Thread.abort_on_exception = true
+        @this.expects(:receive_data)# .with(@result)
         tick do
           @this.set_deferred_status(:succeeded, @result)
-          @this.expects(:receive_data).with(@result)
         end
       end
     end

@@ -5,13 +5,10 @@ module Crunch
   # Represents a single document object in MongoDB. The data itself is immutable, but may be replaced with a 
   # fresh fieldset by calling the #refresh or #modify methods.
   class Document
-    
-    include Querist
-    
-    
+        
     private_class_method :new
     
-    # A shortcut to the '_id' value of the Mongo document.
+    # A shortcut to the '_id' value of the Mongo document. 
     def id
       @data['_id']
     end
