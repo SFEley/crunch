@@ -29,6 +29,7 @@ end
 
 Rspec.configure do |config|
   config.mock_with :mocha
+  config.alias_it_should_behave_like_to :behaves_like, 'behaving like'
   
   config.before(:all) do
     @verifier_db = Mongo::Connection.new.db('crunch_test') # For verification while we bootstrap

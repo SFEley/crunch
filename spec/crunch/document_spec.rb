@@ -16,6 +16,32 @@ module Crunch
       ->{Document.new}.should raise_error(NoMethodError)
     end
     
+    it "knows its collection" do
+      @this.collection.should == @collection
+    end
+    
+    it "knows the query that was passed to it" do
+      this = Document.send :new, @collection, query: {foo: 'bar'}
+      this.query.should be_a(Fieldset)
+      this.query['foo'].should == 'bar'
+    end
+    
+    it "sets up a query with the ID if one was passed to it" do
+      this = Document.send :new, @collection, query: {foo: 'bar'}, id: 11.2
+      this.query.should be_a(Fieldset)
+      this.query['foo'].should == 'bar'
+      this.query['_id'].should == 11.2
+    end
+    
+    it "defaults its query to the ID if none was given" do
+      @this.query['_id'].should == 7
+    end
+    
+    it "knows its other options" do
+      @this.options[:limit].should == 1
+    end
+    
+    
     it "can take an ID" do
       @this['_id'].should == 7
     end

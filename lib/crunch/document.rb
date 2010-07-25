@@ -5,7 +5,8 @@ module Crunch
   # Represents a single document object in MongoDB. The data itself is immutable, but may be replaced with a 
   # fresh fieldset by calling the #refresh or #modify methods.
   class Document
-        
+    attr_reader :collection, :query, :options
+    
     private_class_method :new
     
     # A shortcut to the '_id' value of the Mongo document. 
@@ -31,22 +32,24 @@ module Crunch
     #
     # @param [Collection] collection The Collection to which the Document belongs
     # @option [Hash, Fieldset] data Pre-retrieved information with which to populate the document
-    # @option [Object] id If provided, is merged into the query's '_id' field to look up the specific document
+    # @option [Object] id If provided, and if there was no pre-retrieved data, gets merged into the query's '_id' field to look up the specific document
     def initialize(collection, options={})
+      @collection, @options = collection, options
       @data = Fieldset.new options.delete(:data) if options.has_key?(:data)
       
-      if options[:id]
-        options[:query] = Fieldset.new((options[:query] || {}).merge '_id' => options.delete(:id))
-      else
-        options[:query] = Fieldset.new(options[:query])
+      # We must have a query
+      query = options.delete(:query) || {}
+      if @data && @data['_id']
+        query['_id'] = @data['_id']
+      elsif options[:id]
+        query['_id'] = options.delete(:id)
       end
+      @query = Fieldset.new query
+      
       
       # Set start and limit to the only sensible values for a single document
       options[:skip] = 0
       options[:limit] = 1
-
-      # Set up our query and data. This will pass to the Querist module, which will do most of the work.
-      super
     end
   end
 end

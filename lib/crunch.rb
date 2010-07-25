@@ -8,7 +8,6 @@ module Crunch
   autoload :Group, 'crunch/group'
   autoload :Collection, 'crunch/collection'
   autoload :CommandCollection, 'crunch/collections/command_collection'
-  autoload :Querist, 'crunch/querist'
   autoload :Fieldset, 'crunch/fieldset'
   autoload :Document, 'crunch/document'
   
@@ -19,6 +18,9 @@ module Crunch
   autoload :QueryMessage, 'crunch/messages/query_message'
   autoload :InsertMessage, 'crunch/messages/insert_message'
   autoload :UpdateMessage, 'crunch/messages/update_message'
+
+  autoload :Querist, 'crunch/querist'
+  autoload :DocumentQuerist, 'crunch/querists/document_querist'
   
   # Utility methods
   

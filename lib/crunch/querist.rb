@@ -1,22 +1,24 @@
 # Defines a helper object that serves as an intermediary between Documents or
 # Groups and the Database.  It creates a query to retrieve whatever data's
-# asked for and sends it to the Database, them sets up callbacks to receive the
-# response. This is an abstract class; by itself it does nothing useful with
-# the responses, but subclasses will parse the responses and replace data
-# within the Document or Group that owns them. Querists are short-lived, and
-# die off after their request has succeeded or failed.
+# asked for and sends it to the Database, then sets up callbacks to receive
+# the response. This is meant to be an abstract class; by itself it only does
+# some header validation, but subclasses will parse the responses and pass
+# them further up the callback chain. Querists are short-lived and only run a
+# single query once.
 #
 # This separates concerns rather nicely. Documents that are prepopulated with
 # data (say, from a Group) don't have to worry about how to talk to the
-# Database.  And the Database doesn't have to care whether it's routing
-# traffic for a document or a group.  It's talking to a Querist, and what
-# happens next is the Querist's problem.  Think of it like a mortgage broker,
-# only without the sorts of incentives that can bring down the global economy.
+# Database.  The Database doesn't have to care whether it's routing traffic
+# for a document or a group.  And even the Querist object doesn't have to keep
+# explicit track of its creator; the creator can set its own callback and let
+# the data fall into place with the magic of closures. (Closures are a bit
+# like The Force, surrounding and penetrating all object data and binding it
+# together. But without the midichlorians.)
 module Crunch
   class Querist
     include EventMachine::Deferrable
     
-    attr_reader :database, :collection, :query, :fields, :limit, :skip
+    attr_reader :database, :collection, :message, :query, :fields, :limit, :skip
 
     # Our base Querist is created with whatever information is necessary to 
     # construct a working MongoDB query. Subclasses will also accept the
@@ -55,7 +57,7 @@ module Crunch
         header[:response_to],
         header[:op_code],
         header[:response_flag],
-        header[:cursor_id],
+        header[:cursor_id],  # The 'Q' pack option may get 64-bit endianness wrong, but we don't care; we're not going to _use_ this number, just send it back to the DB.
         header[:starting_from],
         header[:number_returned],
         documents = mongo_data.unpack('VVVVVQVVa*')
@@ -63,28 +65,46 @@ module Crunch
         # Fail early, fail often
         fail HeaderError.new("Incomplete reply! Expected #{mongo_data.bytesize} bytes, got #{header[:message_length]}.") unless header[:message_length] == mongo_data.bytesize
         
-        fail HeaderError.new("Wrong reply! The handler for request #{@message.request_id} got an answer to request #{header[:response_to]}.") unless header[:response_to] == @message.request_id
+        fail HeaderError.new("Wrong reply! The handler for request #{@message.request_id} got an answer to request #{header[:response_to]}.") unless header[:response_to] == message.request_id
         
         fail "MongoDB reports query failure. Response code: #{header[:response_flag]}" unless header[:response_flag] == 0
         
-        # Pass on our parsed results
+        # Pass our parsed results down the chain
         set_deferred_status :succeeded, header, documents
       end
     end
   
-    # The fully qualified "database.collection" name.  (We query the Collection for it.)
-    def collection_name
-      @collection.full_name
-    end
   
-    # Reloads (or loads for the first time) the current data. 
-    def refresh
+    # Sends the message to the Database and waits for the reply. 
+    def query
       EventMachine.next_tick do
-        database << @message
+        database << message
       end
     end
     
-    protected
+    # The fully qualified "database.collection" name.  (We query the Collection for it.)
+    def collection_name
+      collection.full_name
+    end
+    
+    # A convenience method that allows Querists to do their work in a single method call.
+    # Does the following:
+    #   1. Creates a new Querist object with the parameters given;
+    #   2. If a block is provided, assigns it to the new querist as a callback;
+    #   3. Calls the new querist's {#query} method;
+    #   4. Returns the new querist so that other reindeer games can be played.
+    #
+    # @param [Collection] collection We need to know where to ask
+    # @param [Fieldset] query We must have _something_ to ask the Database
+    # @option [Array] fields Only retrieve these fields from documents
+    # @option [Integer] limit Only retrieve this many records
+    # @option [Integer] skip Start at this position in the DB's matching records
+    def self.run(collection, query, options={}, &callback)
+      querist = self.new collection, query, options
+      querist.callback &callback if callback
+      querist.query
+      querist
+    end
     
     
     
