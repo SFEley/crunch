@@ -49,23 +49,26 @@ module Crunch
       #
       # @see http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol
       callback do |mongo_data| 
-        message_length,
-        request_id,
-        response_to,
-        op_code,
-        response_flag,
-        cursor_id,
-        starting_from,
-        number_returned,
+        header = {}
+        header[:message_length],
+        header[:request_id],
+        header[:response_to],
+        header[:op_code],
+        header[:response_flag],
+        header[:cursor_id],
+        header[:starting_from],
+        header[:number_returned],
         documents = mongo_data.unpack('VVVVVQVVa*')
         
         # Fail early, fail often
-        fail "Incomplete reply! Expected #{mongo_data.bytesize} bytes, got #{message_length}." unless message_length == mongo_data.bytesize
+        fail HeaderError.new("Incomplete reply! Expected #{mongo_data.bytesize} bytes, got #{header[:message_length]}.") unless header[:message_length] == mongo_data.bytesize
         
-        fail "Wrong reply! The handler for request #{@message.request_id} got an answer to request #{response_to}." unless response_to == @message.request_id
+        fail HeaderError.new("Wrong reply! The handler for request #{@message.request_id} got an answer to request #{header[:response_to]}.") unless header[:response_to] == @message.request_id
         
-        fail "MongoDB reports query failure. Response code: #{response_flag}" unless response_flag == 0
+        fail "MongoDB reports query failure. Response code: #{header[:response_flag]}" unless header[:response_flag] == 0
         
+        # Pass on our parsed results
+        set_deferred_status :succeeded, header, documents
       end
     end
   
@@ -77,7 +80,7 @@ module Crunch
     # Reloads (or loads for the first time) the current data. 
     def refresh
       EventMachine.next_tick do
-        database << message
+        database << @message
       end
     end
     
