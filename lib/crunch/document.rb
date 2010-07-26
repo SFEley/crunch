@@ -1,5 +1,3 @@
-require_relative 'querist'
-
 module Crunch
   
   # Represents a single document object in MongoDB. The data itself is immutable, but may be replaced with a 
@@ -22,6 +20,12 @@ module Crunch
     # until the new fieldset replaces the old. (I.e., a ready document should never become unready.)
     def ready?
       !!@data
+    end
+    
+    # Sends the Document's query to the database and sets up a callback to refresh the data
+    # once it's ready.
+    def retrieve
+      @querist ||= DocumentQuerist.run(self) {|fieldset| @data = fieldset}
     end
     
     
