@@ -8,6 +8,9 @@ module Crunch
   # by Crunch, and can accept one authentication (if necessary).  This 
   # dramatically simplifies the API.
   describe Database do
+    before(:each) do
+      Database.class_variable_get(:@@databases).clear  # Reinitialize each time
+    end
   
     it "must be instantiated with connect()" do
       lambda{d = Database.new}.should raise_error(NoMethodError)
@@ -15,15 +18,14 @@ module Crunch
     
     it "starts EventMachine if it isn't already running" do
       if EventMachine.reactor_running?
-        EventMachine.next_tick {EventMachine.stop}
+        EventMachine.stop_event_loop
         while EventMachine.reactor_running?
           sleep(0.1)
         end
       end
       d = Database.connect 'foo'
-      EventMachine.next_tick do
-        EventMachine.should be_reactor_running
-      end
+      tick
+      EventMachine.should be_reactor_running
     end
       
     it "is a singleton" do
@@ -59,24 +61,21 @@ module Crunch
       
     end
     
-    describe "connection" do
-      before(:each) do
-        Database.class_variable_set(:@@databases, Hash.new)  # Clear the cache so we reinitialize
-      end
+    describe "connecting" do
       
       it "requires a name" do
         ->{d = Database.connect}.should raise_error(ArgumentError)
       end
 
       it "defaults to localhost:27017" do
-        EventMachine.expects(:connect).with('localhost',27017)
+        EventMachine.expects(:connect).with('localhost',27017,instance_of(Module),instance_of(Database))
         tick do
           d = Database.connect 'foo'
         end
       end
       
       it "accepts a given host" do
-        EventMachine.expects(:connect).with('example.org',27017)
+        EventMachine.expects(:connect).with('example.org',27017,instance_of(Module),instance_of(Database))
         tick do
           d = Database.connect 'foo', host: 'example.org'
         end
@@ -84,7 +83,7 @@ module Crunch
       
 
       it "accepts a given port" do
-        EventMachine.expects(:connect).with('localhost',71072)
+        EventMachine.expects(:connect).with('localhost',71072,instance_of(Module),instance_of(Database))
         tick do 
           d = Database.connect 'foo', port: 71072
         end
@@ -128,7 +127,66 @@ module Crunch
       end
       
     end
-  
+    
+    describe "connections" do
+      
+      it "will have one at start" do
+        this = tick{Database.connect 'crunch_test'}
+        this.connection_count.should == 1
+      end
+      
+      it "can set more at initialization" do
+        this = tick{Database.connect 'crunch_test', min_connections: 3}
+        this.connection_count.should == 3
+      end
+      
+      it "can set zero at initialization" do
+        this = tick{Database.connect 'crunch_test', min_connections: 0}
+        this.connection_count.should == 0
+      end
+      
+      it "are checked every second by default" do
+        this = tick{Database.connect 'crunch_test'}
+        this.heartbeat.should == 1
+      end
+      
+      it "can set the heartbeat at initialization" do
+        this = tick{Database.connect 'crunch_test', heartbeat: 3}
+        this.heartbeat.should == 3
+      end
+        
+        
+      it "can set more at run time" do
+        this = tick{Database.connect 'crunch_test', min_connections: 1, heartbeat: 1}
+        this.min_connections = 5
+        this.connection_count.should == 1
+        tick{sleep(1)}
+        this.connection_count.should == 5
+      end
+      
+      it "defaults to maximum 10 connections" do
+        this = tick{Database.connect 'crunch_test'}
+        this.max_connections.should == 10
+      end
+      
+      it "can set maximum connections at initialization" do
+        this = tick{Database.connect 'crunch_test', max_connections: 5}
+        this.max_connections.should == 5
+      end
+        
+      
+      it "can't have max_connections less than min_connections" do
+        this = tick{Database.connect 'crunch_test', min_connections: 5}
+        ->{this.max_connections = 4}.should raise_error(DatabaseError)
+      end
+      
+      it "can't have min_connections more than max_connections" do
+        this = tick{Database.connect 'crunch_test', max_connections: 5}
+        ->{this.min_connections = 6}.should raise_error(DatabaseError)
+      end
+        
+    end
+    
     describe "sending messages" do
       before(:each) do
         @sender = stub "Document"
@@ -161,6 +219,15 @@ module Crunch
         @this.receive_reply(reply)
       end
       
+      it "queues the messages" do
+        # Keep connections from taking things off the queue
+        # EventMachine::Queue.any_instance.stubs(:pop).returns(nil)
+        
+        3.times {tick{@this << @message}}
+        @this.pending_count.should == 3
+      end
+      
+      
     end
 
     
@@ -177,11 +244,6 @@ module Crunch
         @this.collection('TestCollection').should be_a(Collection)
       end
       
-    end
-
-    
-    after(:each) do
-      tick {nil}
     end
 
   end

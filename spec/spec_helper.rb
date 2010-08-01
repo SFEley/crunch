@@ -5,22 +5,16 @@ require 'rspec/autorun'
 require 'mocha'
 require 'mongo'  # For verification only!
 
-# Perform the requested action, but then don't come back until at least one EventMachine tick has passed.
-def tick
-  unless EventMachine.reactor_running?
-    Thread.new {EventMachine.run {nil}}
-    until EventMachine.reactor_running? do
-      sleep 0.0001
-    end
-  end
-  yield if block_given?
-  ticked = false
-  EventMachine.next_tick do
-    ticked = true
-  end
-  until ticked do
+# Perform the requested action, but then don't come back until at least X EventMachine ticks have passed.
+def tick(times=5)
+  result = block_given? ? yield : true
+  tick, timeout = 0, Time.now + 3
+  times.times {EventMachine.next_tick {tick += 1}}
+  while tick < times and Time.now < timeout do
     sleep 0.0001
   end
+  raise "Tick timed out!" unless tick == times
+  result
 end
     
 def verifier
