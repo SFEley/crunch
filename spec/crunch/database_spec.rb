@@ -8,9 +8,6 @@ module Crunch
   # by Crunch, and can accept one authentication (if necessary).  This 
   # dramatically simplifies the API.
   describe Database do
-    before(:each) do
-      Database.class_variable_get(:@@databases).clear  # Reinitialize each time
-    end
   
     it "must be instantiated with connect()" do
       lambda{d = Database.new}.should raise_error(NoMethodError)
@@ -184,14 +181,14 @@ module Crunch
         this = tick{Database.connect 'crunch_test', max_connections: 5}
         ->{this.min_connections = 6}.should raise_error(DatabaseError)
       end
-        
+      
     end
     
     describe "sending messages" do
       before(:each) do
         @sender = stub "Document"
         @message = stub "QueryMessage", sender: @sender, request_id: 1337, deliver: true
-        @this = Database.connect 'crunch_test' && tick
+        @this = tick{Database.connect 'crunch_test'} 
       end
 
       it "requires a Message" do
@@ -213,18 +210,16 @@ module Crunch
       end
       
       it "pings the sender back on replies" do
-        reply = {reply_id: 1337}
-        @sender.expects(:receive_data).with(reply)
+        reply = [0,0,1337,'blah'].pack('VVVa*')
+        @sender.expects(:succeed).with(reply)
         @this << @message
         @this.receive_reply(reply)
       end
       
       it "queues the messages" do
         # Keep connections from taking things off the queue
-        # EventMachine::Queue.any_instance.stubs(:pop).returns(nil)
-        
-        3.times {tick{@this << @message}}
-        @this.pending_count.should == 3
+        @this.requests.expects(:push).twice
+        2.times {tick{@this << @message}}
       end
       
       

@@ -29,7 +29,10 @@ Rspec.configure do |config|
     @verifier_db = Mongo::Connection.new.db('crunch_test') # For verification while we bootstrap
     @verifier_collection = @verifier_db.create_collection 'TestCollection'
   end
-    
+  
+  config.before(:each) do
+    Crunch::Database.class_variable_get(:@@databases).clear  # Reinitialize each time
+  end
     
   config.after(:each) do
     # Clean up our database

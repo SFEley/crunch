@@ -14,7 +14,7 @@ module Crunch
   class Database
     @@databases ||= {}
     
-    attr_reader :name, :host, :port, :command, :min_connections, :max_connections
+    attr_reader :name, :host, :port, :command, :min_connections, :max_connections, :requests
           
     
     # Returns a database object from which you can query or obtain 
@@ -33,6 +33,7 @@ module Crunch
     # @option opts [Boolean] :create Create the database if it doesn't exist (defaults to true)
     # @option opts [Integer] :min_connections Always maintain at least this many connections (defaults to 1)
     # @option opts [Integer] :max_connections Never create more than this many connections (defaults to 10)
+    # @option opts [Integer] :heartbeat Frequency (in seconds) to perform connection maintenance (defaults to 1)
     # @return Database The new or existing database object
     def self.connect(name, opts={})
       # Flesh out our options, we're gonna need them...
@@ -61,7 +62,9 @@ module Crunch
     
     # Receives a deserialized reply message from MongoDB and routes it to the original sender.
     def receive_reply(reply)
-      sender(reply[:reply_id]).receive_data(reply)
+      # The 'response_to' field is the third 32-bit integer in the message
+      reply_id = reply[8..11].unpack('V').first
+      sender(reply_id).succeed reply
     end
     
     private_class_method :new
@@ -75,7 +78,8 @@ module Crunch
     end
       
     # The number of messages waiting in the queue to be sent to the Mongo server.
-    # In a happy world where everything works, this will be close to 0 at all times.
+    # In a happy world where there enough connections to handle requests, this will
+    # remain close to 0.
     def pending_count
       @heart_mutex.synchronize{requests.size}
     end
@@ -86,6 +90,7 @@ module Crunch
     def connection_count
       @heart_mutex.synchronize{connections.size}
     end
+    
     
     # The minimum number of connections to maintain at any time. Defaults
     # to 1.  If you raise this number at runtime or connections crash
@@ -122,6 +127,7 @@ module Crunch
     end
     
     # Set the frequency (in seconds) at which the database runs connection maintenance.
+    # Setting it to 0 cancels 
     # @see #heartbeat
     def heartbeat=(val)
       raise DatabaseError, "You can't set heartbeat to #{val}. Use a non-negative integer or float." unless val.kind_of?(Numeric) and val >= 0
@@ -148,14 +154,16 @@ module Crunch
       @heart_mutex.synchronize {@heart.interval}
     end
     
+    
   protected
-    attr_reader :connections, :requests, :senders
+    attr_reader :connections, :senders
     
     # Given a request ID from a query response, returns the object that originally sent the message.
     def sender(request_id)
       @senders[request_id] && @senders[request_id][:sender]
     end
     
+    # 
     def initialize(opts)
       @name, @host, @port = opts[:name], opts[:host], opts[:port]
       @max_connections = opts[:max_connections] || 10
@@ -164,6 +172,7 @@ module Crunch
       @command = CommandCollection.send(:new, self)
       @connections = []
       @heart_mutex = Mutex.new
+      @requests = EventMachine::Queue.new
       
       # We start EM in a thread and make a new connection.  If it's already
       # running, this'll just run the code and return right away.
@@ -174,7 +183,6 @@ module Crunch
           @min_connections.times do 
             @connections << EventMachine.connect(host, port, Crunch::Connection, self)
           end
-          @requests = EventMachine::Queue.new
           @heart = EventMachine::PeriodicTimer.new((opts[:heartbeat] || 1), self.method(:perform_heartbeat))
           @heart_mutex.unlock
         end
