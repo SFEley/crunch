@@ -7,9 +7,6 @@ module Crunch
   class Collection 
     attr_reader :database, :name, :full_name
         
-    def <<(message)
-    end
-    
     # Schedules an object for insertion into the database.  Returns the Document object that
     # is to be inserted.
     #

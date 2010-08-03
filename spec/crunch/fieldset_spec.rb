@@ -74,7 +74,7 @@ module Crunch
     end
     
     it "knows how to serialize itself" do
-      "#{@this}".should == @bson_string
+      @this.to_bson.should == @bson_string
     end
     
     

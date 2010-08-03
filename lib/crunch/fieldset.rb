@@ -20,6 +20,7 @@ module Crunch
     def to_s
       BSON.serialize(self).to_s
     end
+    alias_method :to_bson, :to_s
     
     # We're immutable!  These pesky modification methods aren't allowed.
     # (If you're wondering WHY we're immutable, consider the difference between MongoDB retrieval techniques

@@ -4,6 +4,12 @@ module Crunch
   describe Document do
     BSON_STRING = "+\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x0Etoo\x00\x04\x00\x00\x00tar\x00\x10slappy\x00\x11\x00\x00\x00\x00"
     BSON_WITH_ID = "4\x00\x00\x00\x10_id\x00\a\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x0Etoo\x00\x04\x00\x00\x00tar\x00\x10slappy\x00\x11\x00\x00\x00\x00"
+
+    def wait_for_ready
+      increment = 0.0005
+      sleep(increment *= 2) until @this.ready? || increment > 5
+      raise "Document retrieval timed out!" unless @this.ready?
+    end
     
     before(:each) do
       @database = Database.connect 'crunch_test'
@@ -54,9 +60,7 @@ module Crunch
     end
      
     it "knows how to serialize itself" do
-      pending
-      @this['_id'] = 7  # For predictability
-      "#{@this}".should == BSON_WITH_ID
+      @this.to_bson.should == BSON_WITH_ID
     end
     
     it "knows when it's ready" do
@@ -67,51 +71,124 @@ module Crunch
       before(:each) do
         @verifier_collection.insert '_id' => 7, foo: 'bar', too: :tar, slappy: 17
         @this = Document.send(:new, @collection, id: 7)
-        Thread.current.priority = 15  # Try to make sure EM doesn't complete before we do our in-process tests
       end
       
-      def wait_for_ready
-        increment = 0.0005
-        sleep(increment *= 2) until @this.ready? || increment > 5
-      end
       
       it "knows it isn't ready" do
         @this.should_not be_ready
       end
       
       it "can begin a retrieval" do
-        @this.retrieve.should be_a(DocumentQuerist)
+        @this.send(:retrieve).should be_a(DocumentQuerist)
       end
       
       it "returns the same querist on each retrieval if one's in process" do
         # Do our best to make sure the query doesn't return before we do our comparisons
-        q = @this.retrieve
-        @this.retrieve.should be_equal(q)
-      end
-      
-      it "doesn't say it's ready until it's ready" do
-        @this.retrieve
-        @this.should_not be_ready
+        q = @this.send(:retrieve)
+        @this.send(:retrieve).should be_equal(q)
       end
       
       it "has an ID once it's ready" do
-        @this.retrieve
         wait_for_ready
         @this.id.should == 7
       end
       
       it "has data once it's ready" do
-        @this.retrieve
         wait_for_ready
         @this['slappy'].should == 17
       end
+      
+      it "can add a block with no parameters to execute on ready" do
+        status = nil
+        @this.on_ready {status = :done}
+        status.should be_nil
+        wait_for_ready
+        status.should == :done
+      end
+      
+      
+      it "can add a block with the document to execute on ready" do
+        id = nil
+        @this.on_ready {|data| id = data.id}
+        wait_for_ready
+        id.should == 7
+      end
+      
+      it "can add a block with the document and the event handler to execute on ready" do
+        too, collection = nil, nil
+        @this.on_ready {|doc, querist| too = doc['too']; collection = querist.collection}
+        wait_for_ready
+        too.should == :tar
+        collection.should == @collection
+      end
+      
+      it "can add a block to execute on failure" do
+        class TrivialError < StandardError; end
         
-      
-    
-      
-      after(:each) do
-        Thread.current.priority = 0
+        error = nil
+        @this.on_ready {|doc, querist| querist.fail TrivialError.new "This should fail!"}
+        @this.on_error {|e| error = e}
+        wait_for_ready
+        ->{raise error}.should raise_error(TrivialError, "This should fail!")
       end
     end
+    
+    describe "refreshing" do
+      before(:each) do
+        @verifier_collection.insert '_id' => 7, foo: 'bar', too: :tar, slappy: 17
+        @this = @collection.document 7
+        wait_for_ready
+        @this['too'].should == :tar
+        @verifier_collection.update({'_id' => 7}, {'$set' => {'too' => :car}})
+      end
+      
+      describe "asynchronously" do
+        it "returns immediately" do
+          @this.refresh!
+          @this.should_not be_ready
+        end
+        
+        it "returns the document" do
+          d = @this.refresh!
+          d.should be_equal(@this)
+        end
+        
+        it "is eventually ready" do
+          @this.refresh!
+          wait_for_ready
+          @this.should be_ready
+        end
+        
+        it "updates the data when ready" do
+          @this.refresh!
+          wait_for_ready
+          @this['too'].should == :car
+        end
+        
+        it "can return a clone instead of the document itself" do
+          d = @this.refresh! clone: true
+          d.should_not be_equal(@this)
+        end
+          
+        it "can refresh periodically" do
+          d = @this.refresh! periodic: 1
+          sleep(1.2)
+          wait_for_ready
+          @verifier_collection.update({'_id' => 7}, {'$set' => {'too' => 'war'}})
+          @this['too'].should == :car
+          sleep(1.2)
+          wait_for_ready
+          @this['too'].should == 'war'
+        end
+        
+        it "takes a block" do
+          fail
+          # STOP HERE, STEVE, AND IMPLEMENT
+        end
+      end
+        
+      
+    end
+    
   end
 end

@@ -141,7 +141,7 @@ module Crunch
       end
 
       it "updates just one record if multi is false" do
-        @this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}}, multi: false)
+        tick{@this.update(selector: {'bool' => false}, update: {'$set' => {'foo' => 'tar'}}, multi: false)}
         sleep 0.5
         verifier.find('foo' => 'tar').count.should == 1
       end
