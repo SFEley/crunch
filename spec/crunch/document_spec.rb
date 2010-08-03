@@ -9,6 +9,7 @@ module Crunch
       increment = 0.0005
       sleep(increment *= 2) until @this.ready? || increment > 5
       raise "Document retrieval timed out!" unless @this.ready?
+      tick
     end
     
     before(:each) do
@@ -182,12 +183,40 @@ module Crunch
         end
         
         it "takes a block" do
-          fail
-          # STOP HERE, STEVE, AND IMPLEMENT
+          result = nil
+          @this.refresh! {|doc| result = doc['too']}
+          wait_for_ready
+          result.should == :car
+        end
+
+        it "can refresh periodically with a block" do
+          result = nil
+          @this.refresh!(periodic: 1) {|doc| result = doc['too']}
+          sleep(1.2)
+          @verifier_collection.update({'_id' => 7}, {'$set' => {'too' => 'war'}})
+          result.should == :car
+          sleep(1.2)
+          wait_for_ready
+          result.should == 'war'
         end
       end
         
-      
+      describe "synchronously" do
+        it "returns when it's ready" do
+          @this.refresh
+          @this.should be_ready
+        end
+        
+        it "returns the document" do
+          d = @this.refresh
+          d.should be_equal(@this)
+        end
+        
+        it "updates the data" do
+          @this.refresh
+          @this['too'].should == :car
+        end
+      end
     end
     
   end

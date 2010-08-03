@@ -1,4 +1,5 @@
 require 'forwardable'
+require 'thread'
 
 module Crunch
   
@@ -56,9 +57,7 @@ module Crunch
     #
     # @option [Boolean] clone If true, returns a _copy_ of the Document with the refresh scheduled instead of the current Document
     # @option [Numeric, nil, false] periodic If a positive number, sets (or resets) a periodic timer that calls refresh! at the given interval in seconds. Anything else cancels the timer.
-    # @yield [doc, querist] Attached as an {#on_ready} event to the Document or its clone. If a periodic timer is called, the block is called on _every_ success event. (If you're crazy enough to turn on both :periodic and :clone, this is likely the only way to catch the clones that get created.) 
-    # @yieldparam [optional, Crunch::Document] doc The Document object itself
-    # @yieldparam [optional, Crunch::DocumentQuerist] querist The deferrable event handler (useful if you want to set further callbacks or raise an error)
+    # @yield [doc, querist] Attached as a success handler to the Document or its clone. If a periodic timer is called, the block is called on _every_ success event. (If you're crazy enough to turn on both :periodic and :clone, this is likely the only way to catch the clones that get created.) See the {#onready} method for parameters.
     def refresh!(options={}, &block)
       if options.has_key?(:periodic)
         @periodic.cancel if @periodic   # Just get rid of the old one
@@ -69,8 +68,21 @@ module Crunch
         @data, @querist = nil, nil
         target = options[:clone] ? self.clone : self
         target.retrieve
+        target.on_ready &block if block_given?
         target
       end
+    end
+    
+    # Sets the document to unready, clears its data, and executes the document query again.
+    # This form of the method is synchronous -- it will only return when the Document has been
+    # completely loaded. The executing thread will sleep until that happens.
+    def refresh
+      @doc_mutex.synchronize do
+        refresh! 
+        on_ready {@doc_wait.broadcast}
+        @doc_wait.wait(@doc_mutex)
+      end
+      self
     end
     
     
@@ -92,6 +104,7 @@ module Crunch
     def initialize(collection, options={})
       @collection, @options = collection, options
       @doc_mutex = Mutex.new
+      @doc_wait = ConditionVariable.new
       @data = Fieldset.new options.delete(:data) if options.has_key?(:data)
       
       # We must have a query
