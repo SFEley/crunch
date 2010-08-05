@@ -14,5 +14,7 @@ module Crunch
       class HeaderError < ResponseError; end
       
       class QueryError < ResponseError; end
+    
+    class FetchError < CrunchError; end
       
 end
