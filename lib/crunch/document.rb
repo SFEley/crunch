@@ -6,7 +6,7 @@ module Crunch
   # fresh fieldset by calling the #refresh or #modify methods.
   class Document
     
-    attr_reader :collection, :query, :options
+    attr_reader :collection, :conditions, :options
     
     private_class_method :new
     
@@ -146,13 +146,13 @@ module Crunch
       @data = Fieldset.new options.delete(:data) if options.has_key?(:data)
       
       # We must have a query
-      query = options.delete(:query) || {}
+      conditions = options.delete(:conditions) || {}
       if @data && @data['_id']
-        query['_id'] = @data['_id']
+        conditions['_id'] = @data['_id']
       elsif options[:id]
-        query['_id'] = options.delete(:id)
+        conditions['_id'] = options.delete(:id)
       end
-      @query = Fieldset.new query
+      @conditions = Fieldset.new conditions
       
       # Set start and limit to the only sensible values for a single document
       options[:skip] = 0

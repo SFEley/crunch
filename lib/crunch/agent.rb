@@ -18,20 +18,20 @@ module Crunch
   class Agent
     include EventMachine::Deferrable
     
-    attr_reader :database, :collection, :message, :query, :fields, :limit, :skip
+    attr_reader :database, :collection, :message, :conditions, :fields, :limit, :skip
 
     # Our base Agent is created with whatever information is necessary to 
     # construct a working MongoDB query. Subclasses will also accept the
     # parameters to tie responses to their owners.
     #
     # @param [Collection] collection We need to know where to ask
-    # @param [Fieldset] query We must have _something_ to ask the Database
+    # @param [Fieldset] conditions We must have _something_ to ask the Database
     # @option [Array] fields Only retrieve these fields from documents
     # @option [Integer] limit Only retrieve this many records
     # @option [Integer] skip Start at this position in the DB's matching records
-    def initialize(collection, query, options={})
+    def initialize(collection, conditions, options={})
       super
-      @collection, @query = collection, query
+      @collection, @conditions = collection, conditions
       @database = @collection.database
     
       @fields = options[:fields]
@@ -39,7 +39,7 @@ module Crunch
       @skip = options[:skip]
 
       @message = QueryMessage.new self, 
-                                  query: @query, 
+                                  conditions: @conditions, 
                                   fields: @fields, 
                                   limit: @limit, 
                                   skip: @skip
@@ -76,7 +76,7 @@ module Crunch
   
   
     # Sends the message to the Database and waits for the reply. 
-    def query
+    def deliver
       EventMachine.next_tick do
         database << message
       end
@@ -95,14 +95,14 @@ module Crunch
     #   4. Returns the new agent so that other reindeer games can be played.
     #
     # @param [Collection] collection We need to know where to ask
-    # @param [Fieldset] query We must have _something_ to ask the Database
+    # @param [Fieldset] conditions We must have _something_ to ask the Database
     # @option [Array] fields Only retrieve these fields from documents
     # @option [Integer] limit Only retrieve this many records
     # @option [Integer] skip Start at this position in the DB's matching records
-    def self.run(collection, query, options={}, &callback)
-      agent = self.new collection, query, options
+    def self.run(collection, conditions, options={}, &callback)
+      agent = self.new collection, conditions, options
       agent.callback &callback if callback
-      agent.query
+      agent.deliver
       agent
     end
     

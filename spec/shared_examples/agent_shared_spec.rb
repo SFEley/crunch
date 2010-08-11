@@ -8,7 +8,7 @@ module Crunch
     end
 
     it "can have query conditions" do
-      @this.should respond_to(:query)
+      @this.should respond_to(:conditions)
     end
   
     it "has fields queried on" do
@@ -27,7 +27,7 @@ module Crunch
     
       it "goes to the database" do
         @database.expects(:<<).with(instance_of(Crunch::QueryMessage))
-        tick {@this.query}
+        tick {@this.deliver}
       end
 
     end

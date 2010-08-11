@@ -29,7 +29,7 @@ module Crunch
     # @see http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol
     def body
       conditions_bson = BSON.serialize @conditions      
-      "\x00\x00\x00\x00#{collection_name}\x00#{[skip, limit].pack('VV')}#{query_bson}#{field_bson}"
+      "\x00\x00\x00\x00#{collection_name}\x00#{[skip, limit].pack('VV')}#{conditions_bson}#{field_bson}"
     end
     
     private

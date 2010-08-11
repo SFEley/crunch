@@ -4,8 +4,10 @@ module Crunch
   # 1. Be as array-like as possible (including indexed access of elements);
   # 2. Offer both synchronous and asynchronous operation;
   # 3. Eliminate any need to worry about Mongo cursor maintenance.
-  class Group
-    attr_reader :database, :collection, :full_collection_name
+  class Query
+    attr_reader :database, :collection, :full_collection_name, :options, :conditions
+    
+    
     
     protected
     
@@ -18,8 +20,9 @@ module Crunch
     #
     # @param [Crunch::Collection] collection 
     def initialize(collection, options={})
-      @collection = collection
+      @collection, @options = collection, options
       @database, @full_collection_name = collection.database, collection.full_name
+      @conditions = @options.delete(:conditions) || {}
     end
     
   end

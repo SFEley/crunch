@@ -15,6 +15,7 @@ module Crunch
       @database = Database.connect 'crunch_test'
       @collection = @database.collection 'TestCollection'
       @verifier_collection.insert '_id' => 7, foo: 'bar', too: :tar, slappy: 17
+      @verifier_collection.insert '_id' => :argh, foo: :rebar, too: 'far', happy: -5
       @this = Document.send :new, @collection, data: {'_id' => 7, foo: 'bar', too: :tar, slappy: 17}
     end
 
@@ -27,20 +28,20 @@ module Crunch
     end
 
     it "knows the query that was passed to it" do
-      this = Document.send :new, @collection, query: {foo: 'bar'}
-      this.query.should be_a(Fieldset)
-      this.query['foo'].should == 'bar'
+      this = Document.send :new, @collection, conditions: {foo: 'bar'}
+      this.conditions.should be_a(Fieldset)
+      this.conditions['foo'].should == 'bar'
     end
 
     it "sets up a query with the ID if one was passed to it" do
-      this = Document.send :new, @collection, query: {foo: 'bar'}, id: 11.2
-      this.query.should be_a(Fieldset)
-      this.query['foo'].should == 'bar'
-      this.query['_id'].should == 11.2
+      this = Document.send :new, @collection, conditions: {foo: 'bar'}, id: 11.2
+      this.conditions.should be_a(Fieldset)
+      this.conditions['foo'].should == 'bar'
+      this.conditions['_id'].should == 11.2
     end
 
     it "defaults its query to the ID if none was given" do
-      @this.query['_id'].should == 7
+      @this.conditions['_id'].should == 7
     end
 
     it "knows its other options" do
@@ -132,6 +133,19 @@ module Crunch
           wait_for_ready
           ->{raise error}.should raise_error(TrivialError, "This should fail!")
         end
+        
+        it "can limit the fields retrieved" do
+          @this = Document.send(:new, @collection, id: 7, fields: [:foo, :slappy], synchronous: false)
+          @this.on_ready {|doc| doc['too'].should be_nil}
+          wait_for_ready
+        end
+        
+        it "can query without an ID" do
+          @this = Document.send(:new, @collection, conditions: {happy: {'$lte' => 0}}, synchronous: false)
+          @this.on_ready {|doc| doc['foo'].should == :rebar}
+          wait_for_ready
+        end
+          
       end
 
       describe "synchronously" do
@@ -150,6 +164,19 @@ module Crunch
         it "has data immediately" do
           @this['slappy'].should == 17
         end
+        
+        it "can limit the fields retrieved" do
+          @this = Document.send(:new, @collection, id: 7, fields: [:foo, :slappy], synchronous: true)
+          @this['too'].should be_nil
+          @this['foo'].should == "bar"
+        end
+        
+        it "can query without an ID" do
+          @this = Document.send(:new, @collection, conditions: {happy: {'$lte' => 0}}, synchronous: true)
+          @this.id.should == :argh
+          @this['happy'].should == -5
+        end
+        
       end
     end
 

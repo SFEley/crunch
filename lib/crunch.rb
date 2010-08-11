@@ -5,7 +5,7 @@ module Crunch
   # Hey, it's Ruby 1.9.  Autoload is safe again!  Spread the word!
   autoload :Connection, 'crunch/connection'
   autoload :Database, 'crunch/database'
-  autoload :Group, 'crunch/group'
+  autoload :Query, 'crunch/query'
   autoload :Collection, 'crunch/collection'
   autoload :CommandCollection, 'crunch/collections/command_collection'
   autoload :Fieldset, 'crunch/fieldset'

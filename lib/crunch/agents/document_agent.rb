@@ -45,7 +45,7 @@ module Crunch
     #   returned by the database and assign it to something in the calling object.
     # @yieldparam [Fieldset] fieldset The document returned by the database
     def self.run(document, &callback)
-      super document.collection, document.query, document.options, &callback
+      super document.collection, document.conditions, document.options, &callback
     end
     
     
