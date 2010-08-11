@@ -3,7 +3,7 @@ module Crunch
     @opcode = 2004  # OP_QUERY
     
     attr_reader :sender, :collection_name
-    attr_accessor :query, :fields, :skip, :limit
+    attr_accessor :conditions, :fields, :skip, :limit
     
     # The only required parameter is a Crunch::Collection object. The query criteria,
     # options, etc. will be happily accepted as options, or can be set via accessors
@@ -19,7 +19,7 @@ module Crunch
     def initialize(sender, opts={})
       @sender = sender
       @collection_name = sender.collection_name
-      @query  = opts[:query]  || {}
+      @conditions  = opts[:conditions]  || {}
       @fields = opts[:fields] || []
       @skip   = opts[:skip]   || 0
       @limit  = opts[:limit]  || 0
@@ -28,7 +28,7 @@ module Crunch
     
     # @see http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol
     def body
-      query_bson = BSON.serialize @query      
+      conditions_bson = BSON.serialize @conditions      
       "\x00\x00\x00\x00#{collection_name}\x00#{[skip, limit].pack('VV')}#{query_bson}#{field_bson}"
     end
     

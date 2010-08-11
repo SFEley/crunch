@@ -1,4 +1,4 @@
-require_relative 'querist'
+require_relative 'agent'
 
 module Crunch
   

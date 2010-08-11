@@ -1,5 +1,5 @@
 module Crunch
-  shared_examples_for "a Querist" do
+  shared_examples_for "an Agent" do
     before(:each) do
     end
   

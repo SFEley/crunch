@@ -32,7 +32,7 @@ module Crunch
       db.collection_names.should include('OtherCollection')
     end
     
-    describe "retrieval" do
+    describe "retrieving" do
       before(:each) do
         tick do
           @this.insert @record
@@ -40,16 +40,19 @@ module Crunch
         end
       end
       
-      it "can return a document" do
-        @this.document(17).should be_a(Document)
+      describe "synchronously" do
+        it "can return a document" do
+          @this.document(17)['num'].should == 5.2
+        end
+      
+        it "can return a group" do
+          pending
+          group = @this.group(bool: false)
+          group.should be_a(Collection)
+          group.should have(2).documents
+        end
       end
       
-      it "can return a group" do
-        pending
-        group = @this.group(bool: false)
-        group.should be_a(Collection)
-        group.should have(2).documents
-      end
     end
     
     describe "inserting" do

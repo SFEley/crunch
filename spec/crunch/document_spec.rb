@@ -15,7 +15,7 @@ module Crunch
       @database = Database.connect 'crunch_test'
       @collection = @database.collection 'TestCollection'
       @verifier_collection.insert '_id' => 7, foo: 'bar', too: :tar, slappy: 17
-      @this = Document.send :new, @collection, fields: {'_id' => 7, foo: 'bar', too: :tar, slappy: 17}
+      @this = Document.send :new, @collection, data: {'_id' => 7, foo: 'bar', too: :tar, slappy: 17}
     end
 
     it "must be instantiated from a collection" do
@@ -80,10 +80,10 @@ module Crunch
         end
 
         it "can begin a retrieval" do
-          @this.send(:retrieve).should be_a(DocumentQuerist)
+          @this.send(:retrieve).should be_a(DocumentAgent)
         end
 
-        it "returns the same querist on each retrieval if one's in process" do
+        it "returns the same agent on each retrieval if one's in process" do
           # Do our best to make sure the query doesn't return before we do our comparisons
           q = @this.send(:retrieve)
           @this.send(:retrieve).should be_equal(q)
@@ -117,7 +117,7 @@ module Crunch
 
         it "can add a block with the document and the event handler to execute on ready" do
           too, collection = nil, nil
-          @this.on_ready {|doc, querist| too = doc['too']; collection = querist.collection}
+          @this.on_ready {|doc, agent| too = doc['too']; collection = agent.collection}
           tick{wait_for_ready}
           too.should == :tar
           collection.should == @collection
@@ -127,7 +127,7 @@ module Crunch
           class TrivialError < StandardError; end
 
           error = nil
-          @this.on_ready {|doc, querist| querist.fail TrivialError.new "This should fail!"}
+          @this.on_ready {|doc, agent| agent.fail TrivialError.new "This should fail!"}
           @this.on_error {|e| error = e}
           wait_for_ready
           ->{raise error}.should raise_error(TrivialError, "This should fail!")
@@ -239,7 +239,7 @@ module Crunch
       end
     end
 
-    describe "accessing fields" do
+    describe "accessing data" do
       before(:each) do
         @this = Document.send(:new, @collection, id: 7, synchronous: false)
       end

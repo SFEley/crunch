@@ -19,8 +19,8 @@ module Crunch
   autoload :InsertMessage, 'crunch/messages/insert_message'
   autoload :UpdateMessage, 'crunch/messages/update_message'
 
-  autoload :Querist, 'crunch/querist'
-  autoload :DocumentQuerist, 'crunch/querists/document_querist'
+  autoload :Agent, 'crunch/agent'
+  autoload :DocumentAgent, 'crunch/agents/document_agent'
   
   # Utility methods
   

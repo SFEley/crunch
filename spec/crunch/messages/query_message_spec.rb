@@ -10,7 +10,7 @@ module Crunch
       @sender = stub collection_name: 'crunch_test.TestCollection'
       
       @this = QueryMessage.new(@sender, 
-                                query: {foo: :bar},
+                                conditions: {foo: :bar},
                                 fields: [:foo, 'zoo'],
                                 skip: 11,
                                 limit: 50)
@@ -31,18 +31,18 @@ module Crunch
     end
     
     
-    it "can take a query on creation" do
-      @this.query.should == {foo: :bar}
+    it "can take conditions on creation" do
+      @this.conditions.should == {foo: :bar}
     end
     
-    it "can take a query after the fact" do
-      @this.query = {too: :tar}
-      @this.query.should == {too: :tar}
+    it "can take conditions after the fact" do
+      @this.conditions = {too: :tar}
+      @this.conditions.should == {too: :tar}
     end
     
-    it "can modify the query after the fact" do
-      @this.query.merge! zoo: :zar
-      @this.query.should == {foo: :bar, zoo: :zar}
+    it "can modify conditions after the fact" do
+      @this.conditions.merge! zoo: :zar
+      @this.conditions.should == {foo: :bar, zoo: :zar}
     end
     
     it "can take a field list on creation" do

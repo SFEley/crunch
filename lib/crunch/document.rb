@@ -12,31 +12,31 @@ module Crunch
     
     # A shortcut to the '_id' value of the Mongo document. 
     def id
-      @fields['_id']
+      @data['_id']
     end
         
     # Retrieves the given field value from the fieldset.
     def [](key)
-      fields[key]
+      data[key]
     end
     
     # Serializes the document to a MongoDB binary string.
     def to_bson
-      fields.to_bson
+      data.to_bson
     end
     
     # The fieldset representing the document's data. If the data has not yet been retrieved and processed
     # from MongoDB, the {#synchronous_fetch} setting determines behavior.
-    def fields
+    def data
       @doc_mutex.synchronize do
-        if @fields.nil?
+        if @data.nil?
           if synchronous_fetch?
             @doc_wait.wait(@doc_mutex)
           else
             raise FetchError, "#{self} has not finished loading data!"
           end
         end
-        @fields
+        @data
       end
     end
 
@@ -45,7 +45,7 @@ module Crunch
     # uncertain whether a query's returned yet in asynchronous mode.
     def ready?
       @doc_mutex.synchronize do
-        !@fields.nil?
+        !@data.nil?
       end
     end
     
@@ -53,12 +53,12 @@ module Crunch
     # data has been fully loaded. The block may take 0, 1, or 2 parameters, depending on how
     # much manipulation you want to perform in your callback.
     # @yieldparam [optional, Crunch::Document] doc The Document object itself
-    # @yieldparam [optional, Crunch::DocumentQuerist] querist The deferrable event handler (useful if you want to set further callbacks or raise an error)
+    # @yieldparam [optional, Crunch::DocumentAgent] agent The deferrable event handler (useful if you want to set further callbacks or raise an error)
     def on_ready(&block)
       case block.arity
       when -1, 0 then retrieve.callback {|*args| retrieve.succeed}  # Pass no parameters up the chain
       when 1 then retrieve.callback {|*args| retrieve.succeed self} # Pass the Document itself up the chain
-      when 2 then retrieve.callback {|*args| retrieve.succeed self, retrieve}  # Pass the Document and the DocumentQuerist
+      when 2 then retrieve.callback {|*args| retrieve.succeed self, retrieve}  # Pass the Document and the DocumentAgent
       else
         raise DocumentError, "Blocks passed to Document#on_ready must take 0, 1, or 2 parameters."
       end
@@ -80,7 +80,7 @@ module Crunch
     #
     # @option [Boolean] clone If true, returns a _copy_ of the Document with the refresh scheduled instead of the current Document
     # @option [Numeric, nil, false] periodic If a positive number, sets (or resets) a periodic timer that calls refresh! at the given interval in seconds. Anything else cancels the timer.
-    # @yield [doc, querist] Attached as a success handler to the Document or its clone. If a periodic timer is called, the block is called on _every_ success event. (If you're crazy enough to turn on both :periodic and :clone, this is likely the only way to catch the clones that get created.) See the {#onready} method for parameters.
+    # @yield [doc, agent] Attached as a success handler to the Document or its clone. If a periodic timer is called, the block is called on _every_ success event. (If you're crazy enough to turn on both :periodic and :clone, this is likely the only way to catch the clones that get created.) See the {#onready} method for parameters.
     def refresh!(options={}, &block)
       if options.has_key?(:periodic)
         @periodic.cancel if @periodic   # Just get rid of the old one
@@ -88,7 +88,7 @@ module Crunch
           @periodic = EventMachine.add_periodic_timer(interval) {self.refresh!(options, &block)}
         end
       else
-        @fields, @querist = nil, nil
+        @data, @agent = nil, nil
         target = options[:clone] ? self.clone : self
         target.retrieve
         target.on_ready &block if block_given?
@@ -125,9 +125,9 @@ module Crunch
     # Sends the Document's query to the database and sets up a callback to refresh the data
     # once it's ready.
     def retrieve
-      @querist ||= DocumentQuerist.run(self) do |fieldset| 
+      @agent ||= DocumentAgent.run(self) do |fieldset| 
         @doc_mutex.synchronize do 
-          @fields = fieldset
+          @data = fieldset
           @doc_wait.broadcast
         end
       end
@@ -137,18 +137,18 @@ module Crunch
     # either implicitly by accessing the Group's collection or by calling {Group.document}.
     #
     # @param [Collection] collection The Collection to which the Document belongs
-    # @option [Hash, Fieldset] fields Pre-retrieved information with which to populate the document
+    # @option [Hash, Fieldset] data Pre-retrieved information with which to populate the document
     # @option [Object] id If provided, and if there was no pre-retrieved data, gets merged into the query's '_id' field to look up the specific document
     def initialize(collection, options={})
       @collection, @options = collection, options
       @doc_mutex = Mutex.new
       @doc_wait = ConditionVariable.new
-      @fields = Fieldset.new options.delete(:fields) if options.has_key?(:fields)
+      @data = Fieldset.new options.delete(:data) if options.has_key?(:data)
       
       # We must have a query
       query = options.delete(:query) || {}
-      if @fields && @fields['_id']
-        query['_id'] = @fields['_id']
+      if @data && @data['_id']
+        query['_id'] = @data['_id']
       elsif options[:id]
         query['_id'] = options.delete(:id)
       end
@@ -159,7 +159,7 @@ module Crunch
       options[:limit] = 1
       
       # If we don't have data, start getting some
-      retrieve unless @fields
+      retrieve unless @data
       
       if options[:synchronous]
         @doc_mutex.synchronize do

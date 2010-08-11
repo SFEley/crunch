@@ -4,23 +4,16 @@ module Crunch
   describe Group do
     before(:each) do
       @database = Database.connect('crunch_test')
-      @this = Group.new(@database, 'TestCollection')
+      @collection = @database.collection('TestCollection')
+      @this = Group.send(:new, @collection)
     end
     
     it "requires a database" do
       ->{Group.new}.should raise_error(ArgumentError)
     end
     
-    it "requires a collection name" do
-      ->{Group.new(@database)}.should raise_error(ArgumentError)
-    end
-    
     it "knows its database" do
       @this.database.should == @database
-    end
-    
-    it "knows its collection name" do
-      @this.collection_name.should == 'TestCollection'
     end
     
     it "knows its full collection name" do
@@ -28,11 +21,13 @@ module Crunch
     end
         
     it "can take a list of fields at initialization" do
-      pending
+      this = Group.send(:new, @collection, data: [:foo, :bool, 'slappy'])
+      this.data.should == [:foo, :bool, :slappy]
     end
     
     it "can set query parameters at initialization" do
-      pending
+      this = Group.send(:new, @collection, query: {'num' => {'$gt' => 3}})
+      this.query.should == {'num' => {'$gt' => 3}}
     end
     
     it "can read query specs later" do

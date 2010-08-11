@@ -3,24 +3,24 @@
 # asked for and sends it to the Database, then sets up callbacks to receive
 # the response. This is meant to be an abstract class; by itself it only does
 # some header validation, but subclasses will parse the responses and pass
-# them further up the callback chain. Querists are short-lived and only run a
+# them further up the callback chain. Agents are short-lived and only run a
 # single query once.
 #
 # This separates concerns rather nicely. Documents that are prepopulated with
 # data (say, from a Group) don't have to worry about how to talk to the
 # Database.  The Database doesn't have to care whether it's routing traffic
-# for a document or a group.  And even the Querist object doesn't have to keep
+# for a document or a group.  And even the Agent object doesn't have to keep
 # explicit track of its creator; the creator can set its own callback and let
 # the data fall into place with the magic of closures. (Closures are a bit
 # like The Force, surrounding and penetrating all object data and binding it
 # together. But without the midichlorians.)
 module Crunch
-  class Querist
+  class Agent
     include EventMachine::Deferrable
     
     attr_reader :database, :collection, :message, :query, :fields, :limit, :skip
 
-    # Our base Querist is created with whatever information is necessary to 
+    # Our base Agent is created with whatever information is necessary to 
     # construct a working MongoDB query. Subclasses will also accept the
     # parameters to tie responses to their owners.
     #
@@ -87,12 +87,12 @@ module Crunch
       collection.full_name
     end
     
-    # A convenience method that allows Querists to do their work in a single method call.
+    # A convenience method that allows Agents to do their work in a single method call.
     # Does the following:
-    #   1. Creates a new Querist object with the parameters given;
-    #   2. If a block is provided, assigns it to the new querist as a callback;
-    #   3. Calls the new querist's {#query} method;
-    #   4. Returns the new querist so that other reindeer games can be played.
+    #   1. Creates a new Agent object with the parameters given;
+    #   2. If a block is provided, assigns it to the new agent as a callback;
+    #   3. Calls the new agent's {#query} method;
+    #   4. Returns the new agent so that other reindeer games can be played.
     #
     # @param [Collection] collection We need to know where to ask
     # @param [Fieldset] query We must have _something_ to ask the Database
@@ -100,10 +100,10 @@ module Crunch
     # @option [Integer] limit Only retrieve this many records
     # @option [Integer] skip Start at this position in the DB's matching records
     def self.run(collection, query, options={}, &callback)
-      querist = self.new collection, query, options
-      querist.callback &callback if callback
-      querist.query
-      querist
+      agent = self.new collection, query, options
+      agent.callback &callback if callback
+      agent.query
+      agent
     end
     
     
