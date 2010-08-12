@@ -8,6 +8,8 @@ module Crunch
     class DocumentError < CrunchError; end
   
     class FieldsetError < CrunchError; end
+
+    class RecordsetError < CrunchError; end
   
     class ResponseError < CrunchError; end
   

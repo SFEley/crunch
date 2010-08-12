@@ -30,9 +30,6 @@ module Crunch
       this.conditions.should == {'num' => {'$gt' => 3}}
     end
     
-    it "can read query specs later" do
-      pending
-    end
-  
+    
   end
 end
