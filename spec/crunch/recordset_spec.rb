@@ -17,8 +17,17 @@ module Crunch
     end
     
     describe "from an array" do
-      it "should description" do
-        fail
+      before(:each) do
+        @array =  [ 
+          {'_id' => 7, foo: 'bar', too: :tar, slappy: 17},
+          {'_id' => :argh, foo: :rebar, too: 'far', happy: -5}
+        ]
+        @this = Recordset.new(@array)
+      end
+      it "converts each element to a Fieldset" do
+        @this.each {|e| e.should be_a(Fieldset)}
+        @this.first['slappy'].should == 17
+        @this[1]['foo'].should == :rebar
       end
     end
     

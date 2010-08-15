@@ -8,7 +8,13 @@ module Crunch
     it "knows how to deliver itself" do
       @this.deliver.encoding.should == Encoding::BINARY
     end
-  
+    
+    it "knows when it was delivered" do
+      @this.delivered_at.should be_nil
+      @this.deliver
+      @this.delivered_at.should be_close(Time.now, 1)
+    end
+    
     it "starts with its size" do
       @this.deliver[0..3].unpack('V').first.should == @this.deliver.size
     end

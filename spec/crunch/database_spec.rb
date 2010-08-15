@@ -42,6 +42,16 @@ module Crunch
       db.name.should == 'crunch_test'
     end
     
+    it "inherits global options from the Crunch module" do
+      db = Database.connect 'crunch_test'
+      db.timeout.should > 0
+    end
+    
+    it "can override global options at creation" do
+      db = Database.connect 'crunch_test', timeout: 20
+      db.timeout.should == 20
+    end
+    
     describe "collections" do
       
       before(:each) do
@@ -153,13 +163,6 @@ module Crunch
       end
         
         
-      it "can set more at run time" do
-        this = tick{Database.connect 'crunch_test', min_connections: 1, heartbeat: 1}
-        this.min_connections = 5
-        this.connection_count.should == 1
-        tick{sleep(1)}
-        this.connection_count.should == 5
-      end
       
       it "defaults to maximum 10 connections" do
         this = tick{Database.connect 'crunch_test'}
@@ -172,15 +175,6 @@ module Crunch
       end
         
       
-      it "can't have max_connections less than min_connections" do
-        this = tick{Database.connect 'crunch_test', min_connections: 5}
-        ->{this.max_connections = 4}.should raise_error(DatabaseError)
-      end
-      
-      it "can't have min_connections more than max_connections" do
-        this = tick{Database.connect 'crunch_test', max_connections: 5}
-        ->{this.min_connections = 6}.should raise_error(DatabaseError)
-      end
       
     end
     

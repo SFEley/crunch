@@ -5,6 +5,8 @@ module Crunch
   # The packed binary stuff that goes to MongoDB and comes back. Subclasses implement the specific 
   # header codes and such.
   class Message < BSON::ByteBuffer
+    attr_reader :delivered_at
+    
     @opcode = 1000  # OP_MSG
     
     @@request_id = 0
@@ -30,6 +32,7 @@ module Crunch
     
     # Puts everything together.
     def deliver
+      @delivered_at = Time.now.utc
       header = [(body.length + 16), 
         request_id,
         0,
