@@ -34,6 +34,7 @@ Rspec.configure do |config|
   
   config.before(:each) do
     Crunch::Database.class_variable_get(:@@databases).clear  # Reinitialize each time
+    Crunch.timeout = 2
   end
     
   config.after(:each) do

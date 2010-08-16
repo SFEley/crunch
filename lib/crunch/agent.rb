@@ -56,7 +56,7 @@ module Crunch
         header[:request_id],
         header[:response_to],
         header[:op_code],
-        header[:response_flag],
+        header[:response_flags],
         header[:cursor_id],  # The 'Q' pack option may get 64-bit endianness wrong, but we don't care; we're not going to _use_ this number, just send it back to the DB.
         header[:starting_from],
         header[:number_returned],
@@ -67,19 +67,32 @@ module Crunch
         
         fail HeaderError.new("Wrong reply! The handler for request #{@message.request_id} got an answer to request #{header[:response_to]}.") unless header[:response_to] == message.request_id
         
-        fail "MongoDB reports query failure. Response code: #{header[:response_flag]}" unless header[:response_flag] == 0
+        # Check our response flags for errors
+        fail QueryError.new("MongoDB reports unknown cursor for cursor id #{message.cursor_id}.") if (header[:response_flags] & 1) > 0
+        fail QueryError.new("MongoDB reports query failure: #{documents}") if (header[:response_flags] & 2) > 0
         
         # Pass our parsed results down the chain
         set_deferred_status :succeeded, header, documents
+      end
+      
+      # Catch failures.  If we don't get an exception back, it was probably a timeout. Confirm this and
+      # raise the appropriate exception for downstream handling.
+      errback do |exception=nil|
+        unless exception
+          if message.delivered_at and (Time.now.utc - message.delivered_at) >= database.timeout
+            fail TimeoutError.new "Request #{message.request_id} timed out."
+          else
+            fail ResponseError.new "Unknown error on request #{message.request_id}."
+          end
+        end
       end
     end
   
   
     # Sends the message to the Database and waits for the reply. 
     def deliver
-      EventMachine.next_tick do
-        database << message
-      end
+      database << message
+      timeout(database.timeout)
     end
     
     # The fully qualified "database.collection" name.  (We query the Collection for it.)

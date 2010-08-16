@@ -31,6 +31,7 @@ module Crunch
       @doc_mutex.synchronize do
         if @data.nil?
           if synchronous_fetch?
+            on_error {|exception| raise exception}
             @doc_wait.wait(@doc_mutex)
           else
             raise FetchError, "#{self} has not finished loading data!"
@@ -102,6 +103,7 @@ module Crunch
     def refresh
       @doc_mutex.synchronize do
         refresh!
+        on_error {|exception| raise exception}
         @doc_wait.wait(@doc_mutex)
       end
       self
@@ -164,6 +166,7 @@ module Crunch
       if options[:synchronous]
         @doc_mutex.synchronize do
           on_ready{@doc_wait.broadcast}
+          on_error{|exception| raise exception}
           @doc_wait.wait(@doc_mutex)
         end
       end

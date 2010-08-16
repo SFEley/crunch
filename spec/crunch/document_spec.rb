@@ -70,6 +70,23 @@ module Crunch
     end
 
     describe "querying" do
+      describe "timeout" do
+        before(:each) do
+          EventMachine::Queue.any_instance.expects(:push).returns(nil)  # Keep any requests from going out
+        end
+        
+        it "throws an exception on synchronous requests" do
+          ->{@this = Document.send(:new, @collection, id: 7, synchronous: true)}.should raise_error(TimeoutError)
+        end
+        
+        it "passes an errback on asynchronous requests" do
+          ex = nil
+          @this = Document.send(:new, @collection, id: 7, synchronous: false)
+          @this.on_error {|exception| ex = exception}
+          sleep Crunch.timeout + 1
+          ex.should be_a(TimeoutError)
+        end
+      end
 
       describe "asynchronously" do
         before(:each) do

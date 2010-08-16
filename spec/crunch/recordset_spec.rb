@@ -29,6 +29,9 @@ module Crunch
         @this.first['slappy'].should == 17
         @this[1]['foo'].should == :rebar
       end
+      it "knows its length" do
+        @this.size.should == 2
+      end
     end
     
   end

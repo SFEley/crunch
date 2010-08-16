@@ -42,7 +42,6 @@ module Crunch
       
       describe "synchronously" do
         it "can return a document" do
-          1.should == 2
           @this.document(17)['num'].should == 5.2
         end
       
