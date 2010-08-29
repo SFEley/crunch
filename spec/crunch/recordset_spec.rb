@@ -7,12 +7,26 @@ module Crunch
     end
     
     describe "from binary data" do
+      before(:each) do
+        @this = Recordset.new 2, @bson_string
+      end
+
       it "requires a count" do
         ->{Recordset.new}.should raise_error(ArgumentError)
       end
 
       it "requires a data stream" do
         ->{Recordset.new(5)}.should raise_error(RecordsetError)
+      end
+      
+      it "converts each BSON document to a Fieldset" do
+        @this.should have(2).records
+        @this.each {|e| e.should be_a(Fieldset)}
+      end
+      
+      it "preserves the data" do
+        @this[0]['too'].should == :tar
+        @this[1]['happy'].should == -5
       end
     end
     

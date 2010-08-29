@@ -1,5 +1,4 @@
 require File.dirname(__FILE__) + '/../spec_helper'
-require_relative '../shared_examples/message_shared_spec'
 
 module Crunch
   

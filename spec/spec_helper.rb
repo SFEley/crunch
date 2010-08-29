@@ -5,6 +5,10 @@ require 'rspec/autorun'
 require 'mocha'
 require 'mongo'  # For verification only!
 
+Dir.foreach(File.join(File.dirname(__FILE__), 'shared_examples')) do |filename|
+  require File.join('shared_examples', filename) if filename =~ /\.rb$/
+end
+
 # Perform the requested action, but then don't come back until at least X EventMachine ticks have passed.
 def tick(times=5)
   result = block_given? ? yield : true

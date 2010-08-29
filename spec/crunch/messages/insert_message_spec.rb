@@ -1,5 +1,4 @@
 require_relative '../../spec_helper'
-require_relative '../../shared_examples/message_shared_spec'
 
 module Crunch
   describe InsertMessage do

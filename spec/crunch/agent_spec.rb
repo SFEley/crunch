@@ -1,5 +1,4 @@
 require File.dirname(__FILE__) + '/../spec_helper'
-require_relative '../shared_examples/agent_shared_spec'
 
 module Crunch
   describe Agent do

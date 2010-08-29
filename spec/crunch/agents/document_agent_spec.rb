@@ -1,5 +1,4 @@
 require File.dirname(__FILE__) + '/../../spec_helper'
-require_relative '../../shared_examples/agent_shared_spec'
 
 module Crunch
   describe DocumentAgent do
@@ -12,7 +11,7 @@ module Crunch
       QueryMessage.any_instance.stubs(:request_id).returns(9)
     end
     
-    behaves_like 'an Agent'
+    # behaves_like 'an Agent'
     
     it "always has a limit of 1" do
       @this.limit.should == 1
