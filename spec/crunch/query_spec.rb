@@ -30,6 +30,5 @@ module Crunch
       this.conditions.should == {'num' => {'$gt' => 3}}
     end
     
-    
   end
 end

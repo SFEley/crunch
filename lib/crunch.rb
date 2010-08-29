@@ -23,6 +23,7 @@ module Crunch
 
   autoload :Agent, 'crunch/agent'
   autoload :DocumentAgent, 'crunch/agents/document_agent'
+  autoload :QueryAgent, 'crunch/agents/query_agent'
   
   # Global options
   @@options = {
