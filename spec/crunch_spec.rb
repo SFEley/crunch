@@ -14,15 +14,15 @@ describe Crunch do
 
   describe "utility methods" do
     describe "- oid" do
-      it "converts strings to BSON::ObjectIDs" do
+      it "converts strings to BSON::ObjectIds" do
         this = Crunch.oid('4c2b91d33f1651039f000001')
-        this.should be_a(BSON::ObjectID)
+        this.should be_a(BSON::ObjectId)
         this.generation_time.to_i.should == 1277923795  # 2010-06-30 18:49:55 UTC
       end
       
-      it "returns a current BSON::ObjectID if no parameters are given" do
+      it "returns a current BSON::ObjectId if no parameters are given" do
         this = Crunch.oid
-        this.should be_a(BSON::ObjectID)
+        this.should be_a(BSON::ObjectId)
         this.generation_time.to_i.should be_close(Time.now.to_i, 1)
       end
     end

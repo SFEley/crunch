@@ -63,7 +63,7 @@ You can create an unsaved Document from scratch by passing it a Database and a c
 
     my_document = Document.new db, 'my_collection'
 
-You can also pass a hash of initial data. The new Document will have a generated ObjectID unless you pass it an `:id` parameter. Call `.insert` or `.save` at any time to bring it into the database.
+You can also pass a hash of initial data. The new Document will have a generated ObjectId unless you pass it an `:id` parameter. Call `.insert` or `.save` at any time to bring it into the database.
 
 You can insert documents as a hash into a Database or Collection object with the `.insert` method: 
 
@@ -77,7 +77,7 @@ Both will immediately return a Crunch::Document object that can be used for subs
 
 Documents can be retrieved from Databases, Collections or Groups with the `.document` method. You can pass the document's ID or a hash of query options:
 
-    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectID from a string or number
+    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectId from a string or number
     db.document 'my_collection', id
     my_collection.document id
     my_collection.document name: /Joe/, age: {'$lt' => 35}  # Returns the first document matching the query parameters
