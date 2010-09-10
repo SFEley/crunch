@@ -41,7 +41,7 @@ module Crunch
     alias_method :delete,   :[]=
     alias_method :clear,    :[]=
         
-    # @param [optional, Hash, String, BSON::ByteBuffer] data Sets the hash values -- either directly, or after deserializing if a BSON binary string is provided
+    # @param [optional, Hash, String, Array, BSON::ByteBuffer] data Sets the hash values -- either directly, or after deserializing if a BSON binary string is provided
     def initialize(data=nil)
       super(nil)
       
@@ -50,6 +50,7 @@ module Crunch
       when Hash then stringify_keys(data)
       when String then BSON.deserialize(BSON::ByteBuffer.new(data))
       when BSON::ByteBuffer then BSON.deserialize(data)
+      when Array then hashify_elements(data)
       when nil then nil
       else raise FieldsetError, "Crunch::Fieldset can only be initialized from a hash or binary data! You supplied: #{data}"
       end
@@ -64,6 +65,14 @@ module Crunch
     def stringify_keys(hash)
       out = {}
       hash.each {|k,v| out[k.to_s] = v}
+      out
+    end
+    
+    # Turns an array into a hash in which the elements are keys and the values are all 1.  (Commonly
+    # used in MongoDB field and sort orders.)
+    def hashify_elements(array)
+      out = {}
+      array.each {|e| out[e.to_s] = 1}
       out
     end
   end

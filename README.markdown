@@ -164,24 +164,18 @@ By default, the `.modify` method returns the Document as it exists _after_ the c
 The synchronous form of `.modify` blocks until the result document is returned and has been refreshed into the Document (or the Document's clone). By now you've probably guessed that you can make it asynchronous and optionally pass a block to it with `.modify!` Note that the prior caution about asynchronous changes to data that you're in the middle of using still applies.
 
 
-Group
+Query
 -----
-A **Crunch::Group** object represents a retrievable set of Documents -- i.e., the result set of any query that isn't known to refer to just one Document.  The object is initialized with its Database, a collection name, and an immutable set of query criteria and fields.  The query itself is run on an "as needed" basis, with cursors and _"GETMORE"_ operations managed asynchronously in the background.  Groups can be instantiated from the Database, a Collection, or another Group (in which case they inherit any existing parameters):
+A **Crunch::Query** object represents a retrievable set of Documents -- i.e., the result set of any query that isn't known to refer to just one record.  The object is initialized with its Database, a collection name, and an immutable set of query criteria and fields.  The query itself is run on an "as needed" basis, with cursors and _"GETMORE"_ operations managed asynchronously in the background.  Queries can be instantiated from a Collection or from another Query (in which case they inherit any existing parameters):
 
-    # Create a Group directly from a Database object
-    group = db.group 'my_collection', query: {name: /Joe/}, fields: [:name, :birthdate] 
-    
-    # Create a Group from a Collection object (this is equivalent to the above)
-    group2 = my_collection.group query: {name: /Joe/}, fields: [:name, :birthdate]
+    # Create a Query from a Collection object (this is equivalent to the above)
+    my_query = my_collection.query conditions: {name: /Joe/}, fields: [:name, :birthdate]
     
     # Create a Group from a Group object (this one will already be constrained by the above query)
-    group3 = group2.group query: {weight: {'$lte' => 225}}, sort: :birthdate, limit: 20
+    subquery = my_query.query conditions: {weight: {'$lte' => 225}}, sort: :birthdate, limit: 20
     
-In the Crunch model, the MongoDB _collection_ is just a subclass of Group (**Crunch::Collection**) that takes no query criteria and has some extra methods for managing indexes. It can be created from the Database object by passing the name:
 
-    my_collection = db.collection 'my_collection'
-    
-Groups (including Collections) are partially duck-typed to arrays, and can be accessed by index or enumerated using any of the standard Enumerable methods:
+Queries are partially duck-typed to arrays, and can be accessed by index or enumerated using any of the standard Enumerable methods:
 
     group.first       # Returns the first Document that meets query conditions
     group[17]         # Returns the 17th Document that meets query conditions
@@ -192,14 +186,14 @@ Groups (including Collections) are partially duck-typed to arrays, and can be ac
 
 Direct updates and deletes are always asynchronous, returning immediately with a reference to the Group (thus allowing chaining).  Chains of method calls are guaranteed to be done in order, but _when_ they occur is up to EventMachine.
 
-By default, the `.each` method and most other Group methods that retrieve data are synchronous: they'll block the current thread until the full operation completes.  To be precise, they won't come back until the `.deferred_status` of every Document involved is _:succeeded._  (And they'll throw an exception if it comes back _:failed._) This is a developer convenience in recognition of the fact that _most_ Ruby applications aren't built with an event-driven "inversion of control" mindset. And that's fine.  For many jobs, wrapping everything into a chain of callbacks would only increase complexity with little or no practical benefit.
+By default, the `.each` method and most other Query methods that retrieve data are synchronous: they'll block the current thread until the full operation completes.  To be precise, they won't come back until the `.deferred_status` of every Document involved is _:succeeded._  (And they'll throw an exception if it comes back _:failed._) This is a developer convenience in recognition of the fact that _most_ Ruby applications aren't built with an event-driven "inversion of control" mindset. And that's fine.  For many jobs, wrapping everything into a chain of callbacks would only increase complexity with little or no practical benefit.
 
 However, for cases when it makes sense, there are several ways to perform asynchronous reads:
 
 2. Methods that default to synchronous can be called with the bang modifier, e.g. `.each!` or `.first!` or `.select!` and so forth. This will return a Deferrable object that you can monitor or ignore as you see fit. When the `.deferred_status` is _:succeeded_, the retrieval is done. Any blocks passed will be run as callbacks after the data is there.
-2. The `[]` accessor method can also be passed a block, e.g.: `my_group[21] {|doc| do_something}`. This will act like the bang form described above, with the block attached as a callback to a deferrable Document or array of Documents.
+2. The `[]` accessor method can also be passed a block, e.g.: `my_query[21] {|doc| do_something}`. This will act like the bang form described above, with the block attached as a callback to a deferrable Document or array of Documents.
 1. You can globally set `Crunch.synchronous = false` on application initialization, before the Database is instantiated. All synchronous methods will then act like their bang forms described above.
-2. You can initialize the Database or Group with the `:synchronous => false` option. All synchronous methods will then act like their bang forms described above.
+2. You can initialize the Database or Query with the `:synchronous => false` option. All synchronous methods will then act like their bang forms described above.
 3. You can _temporarily_ set specific operations as asynchronous by passing them as a block to the `.asynchronous` method: `my_group.asynchronous do ... end`.
 
 Likewise, if global options are set to be asynchronous, you can still make some actions synchronous with the `:synchronous => true` initialization option or by wrapping them in `.synchronous` blocks.

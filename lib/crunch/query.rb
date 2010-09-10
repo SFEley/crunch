@@ -22,7 +22,9 @@ module Crunch
     def initialize(collection, options={})
       @collection, @options = collection, options
       @database, @full_collection_name = collection.database, collection.full_name
-      @conditions = @options.delete(:conditions) || {}
+      @conditions = Fieldset.new @options.delete(:conditions)
+      @options[:fields] &&= Fieldset.new @options[:fields]
+      @options[:sort] &&= Fieldset.new @options[:sort]
     end
     
   end

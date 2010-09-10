@@ -46,10 +46,10 @@ module Crunch
         end
       
         it "can return a group" do
+          query = @this.query(bool: false)
           pending
-          group = @this.group(bool: false)
-          group.should be_a(Collection)
-          group.should have(2).documents
+          query.size.should == 2
+          query.any?{|d| d['num'] == 5.2}.should_not be_nil
         end
       end
       

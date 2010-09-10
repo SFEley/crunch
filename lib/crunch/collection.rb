@@ -65,6 +65,14 @@ module Crunch
       end
     end
     
+    # Returns a Crunch::Query after it has retrieved itself from the database.
+    # 
+    # @param [Hash, optional] opts The query options. If none are given, every record from the Collection will be returned in natural sort order.
+    # @return Crunch::Query
+    def query(opts={})
+      Query.send :new, self, opts
+    end
+    
     private_class_method :new
     
     private

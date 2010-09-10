@@ -69,6 +69,11 @@ module Crunch
       this.should == {"foo" => 'bar', "too" => :tar, "slappy" => 17}
     end
     
+    it "can take an array as its values (in which case each element receives a hash value of 1)" do
+      this = Fieldset.new([:foo, 'bar', :blah])
+      this.should == {'foo' => 1, 'bar' => 1, 'blah' => 1}
+    end
+    
     it "complains if anything else is given" do
       ->{this = Fieldset.new(5)}.should raise_error(FieldsetError)
     end
