@@ -69,7 +69,7 @@ module Crunch
       @this.should be_ready
     end
 
-    describe "querying" do
+    describe "retrieving" do
       describe "timeout" do
         before(:each) do
           EventMachine::Queue.any_instance.expects(:push).returns(nil)  # Keep any requests from going out
