@@ -1,0 +1,37 @@
+PATH
+  remote: .
+  specs:
+    crunch (0.0.1)
+      bson (~> 1.1)
+      bson_ext (~> 1.1)
+      eventmachine (~> 0.12)
+
+GEM
+  remote: http://rubygems.org/
+  specs:
+    bson (1.2.0)
+    bson_ext (1.2.0)
+    diff-lcs (1.1.2)
+    eventmachine (0.12.10)
+    mocha (0.9.10)
+      rake
+    mongo (1.2.0)
+      bson (>= 1.2.0)
+    rake (0.8.7)
+    rspec (2.4.0)
+      rspec-core (~> 2.4.0)
+      rspec-expectations (~> 2.4.0)
+      rspec-mocks (~> 2.4.0)
+    rspec-core (2.4.0)
+    rspec-expectations (2.4.0)
+      diff-lcs (~> 1.1.2)
+    rspec-mocks (2.4.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  crunch!
+  mocha (~> 0.9)
+  mongo (~> 1.0)
+  rspec (~> 2.0)

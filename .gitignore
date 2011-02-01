@@ -25,5 +25,6 @@ pkg/*
 coverage
 rdoc
 pkg
+.yardoc
 
 ## PROJECT::SPECIFIC

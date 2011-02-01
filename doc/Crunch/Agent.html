@@ -1,0 +1,1180 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <meta name="Content-Type" content="text/html; charset=utf-8" />
+<title>Class: Crunch::Agent</title>
+<link rel="stylesheet" href="../css/style.css" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="../css/common.css" type="text/css" media="screen" charset="utf-8" />
+
+<script type="text/javascript" charset="utf-8">
+  relpath = '..';
+  if (relpath != '') relpath += '/';
+</script>
+<script type="text/javascript" charset="utf-8" src="../js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="../js/app.js"></script>
+
+  </head>
+  <body>
+    <script type="text/javascript" charset="utf-8">
+      if (window.top.frames.main) document.body.className = 'frames';
+    </script>
+    
+    <div id="header">
+      <div id="menu">
+  
+    <a href="../_index.html">Index (A)</a> &raquo; 
+    <span class='title'><span class='object_link'><a href="../Crunch.html" title="Crunch (module)">Crunch</a></span></span>
+     &raquo; 
+    <span class="title">Agent</span>
+  
+  
+  <div class="noframes"><span class="title">(</span><a href="." target="_top">no frames</a><span class="title">)</span></div>
+</div>
+
+      <div id="search">
+  <a id="class_list_link" href="#">Class List</a>
+  <a id="method_list_link" href="#">Method List</a>
+  <a id ="file_list_link" href="#">File List</a>
+</div>
+
+      <div class="clear"></div>
+    </div>
+    
+    <iframe id="search_frame"></iframe>
+    
+    <div id="content"><h1>Class: Crunch::Agent
+  
+  
+  
+</h1>
+
+<dl class="box">
+  
+    <dt class="r1">Inherits:</dt>
+    <dd class="r1">
+      <span class="inheritName">Object</span>
+      
+        <ul class="fullTree">
+          <li>Object</li>
+          
+            <li class="next">Crunch::Agent</li>
+          
+        </ul>
+        <a href="#" class="inheritanceTree">show all</a>
+      
+      </dd>
+    
+  
+  
+    
+  
+    
+      <dt class="r2">Includes:</dt>
+      <dd class="r2">EventMachine::Deferrable</dd>
+      
+    
+  
+  
+  
+    <dt class="r1 last">Defined in:</dt>
+    <dd class="r1 last">lib/crunch/agent.rb</dd>
+  
+</dl>
+<div class="clear"></div>
+
+<div id="subclasses">
+  <h2>Direct Known Subclasses</h2>
+  <p class="children"><span class='object_link'><a href="DocumentAgent.html" title="Crunch::DocumentAgent (class)">DocumentAgent</a></span>, <span class='object_link'><a href="QueryAgent.html" title="Crunch::QueryAgent (class)">QueryAgent</a></span></p>
+</div>
+
+
+  
+  <h2>Instance Attribute Summary <small>(<a href="#" class="summary_toggle">collapse</a>)</small></h2>
+  <ul class="summary">
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#collection-instance_method" title="#collection (instance method)">- (Object) <strong>collection</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute collection.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#conditions-instance_method" title="#conditions (instance method)">- (Object) <strong>conditions</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute conditions.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#database-instance_method" title="#database (instance method)">- (Object) <strong>database</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute database.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#fields-instance_method" title="#fields (instance method)">- (Object) <strong>fields</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute fields.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#limit-instance_method" title="#limit (instance method)">- (Object) <strong>limit</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute limit.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#message-instance_method" title="#message (instance method)">- (Object) <strong>message</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute message.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#skip-instance_method" title="#skip (instance method)">- (Object) <strong>skip</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute skip.
+</p>
+</div></span>
+  
+</li>
+
+    
+  </ul>
+
+
+  
+    <h2>
+      Class Method Summary
+      <small>(<a href="#" class="summary_toggle">collapse</a>)</small>
+    </h2>
+
+    <ul class="summary">
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#run-class_method" title="run (class method)">+ (Object) <strong>run</strong>(collection, conditions, options = {}, &amp;callback) </a>
+    
+
+    
+  </span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+A convenience method that allows Agents to do their work in a single method
+call.
+</p>
+</div></span>
+  
+</li>
+
+      
+    </ul>
+  
+    <h2>
+      Instance Method Summary
+      <small>(<a href="#" class="summary_toggle">collapse</a>)</small>
+    </h2>
+
+    <ul class="summary">
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#collection_name-instance_method" title="#collection_name (instance method)">- (Object) <strong>collection_name</strong> </a>
+    
+
+    
+  </span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+The fully qualified &#8220;database.collection&#8221; name.
+</p>
+</div></span>
+  
+</li>
+
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#deliver-instance_method" title="#deliver (instance method)">- (Object) <strong>deliver</strong> </a>
+    
+
+    
+  </span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Sends the message to the Database and waits for the reply.
+</p>
+</div></span>
+  
+</li>
+
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#initialize-instance_method" title="#initialize (instance method)">- (Agent) <strong>initialize</strong>(collection, conditions, options = {}) </a>
+    
+
+    
+  </span>
+  
+    <span class="note title constructor">constructor</span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Our base Agent is created with whatever information is necessary to 
+construct a working MongoDB query.
+</p>
+</div></span>
+  
+</li>
+
+      
+    </ul>
+  
+
+
+  <div id="constructor_details" class="method_details_list">
+  <h2>Constructor Details</h2>
+  
+    <div class="method_details first">
+  <p class="signature first" id="initialize-instance_method">
+  
+    - (<tt><span class='object_link'><a href="" title="Crunch::Agent (class)">Agent</a></span></tt>) <strong>initialize</strong>(collection, conditions, options = {}) 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Our base Agent is created with whatever information is necessary to 
+construct a working MongoDB query. Subclasses will also accept the
+parameters to tie responses to their owners.
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  <h3>Parameters:</h3>
+<ul class="param">
+  
+    <li>
+      
+        <span class='type'>(<tt><span class='object_link'><a href="Collection.html" title="Crunch::Collection (class)">Collection</a></span></tt>)</span>
+      
+      
+        <span class='name'>collection</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+We need to know where to ask
+</p>
+</div>
+      
+    </li>
+  
+    <li>
+      
+        <span class='type'>(<tt><span class='object_link'><a href="Fieldset.html" title="Crunch::Fieldset (class)">Fieldset</a></span></tt>)</span>
+      
+      
+        <span class='name'>conditions</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+We must have <em>something</em> to ask the Database
+</p>
+</div>
+      
+    </li>
+  
+    <li>
+      
+        <span class='type'>(<tt>Hash</tt>)</span>
+      
+      
+        <span class='name'>[Array]</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+a customizable set of options
+</p>
+</div>
+      
+    </li>
+  
+    <li>
+      
+        <span class='type'>(<tt>Hash</tt>)</span>
+      
+      
+        <span class='name'>[Integer]</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+a customizable set of options
+</p>
+</div>
+      
+    </li>
+  
+</ul>
+
+  
+    
+    
+    
+    
+    
+    
+
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 32</span>
+
+<span class='kw'>def</span> <span class='id initialize'>initialize</span><span class='lparen'>(</span><span class='id collection'>collection</span><span class='comma'>,</span> <span class='id conditions'>conditions</span><span class='comma'>,</span> <span class='id options'>options</span><span class='op'>=</span><span class='lbrace'>{</span><span class='rbrace'>}</span><span class='rparen'>)</span>
+  <span class='kw'>super</span>
+  <span class='ivar'>@collection</span><span class='comma'>,</span> <span class='ivar'>@conditions</span> <span class='op'>=</span> <span class='id collection'>collection</span><span class='comma'>,</span> <span class='id conditions'>conditions</span>
+  <span class='ivar'>@database</span> <span class='op'>=</span> <span class='ivar'>@collection</span><span class='period'>.</span><span class='id database'>database</span>
+
+  <span class='ivar'>@fields</span> <span class='op'>=</span> <span class='id options'>options</span><span class='lbracket'>[</span><span class='symbol'>:fields</span><span class='rbracket'>]</span>
+  <span class='ivar'>@limit</span> <span class='op'>=</span> <span class='id options'>options</span><span class='lbracket'>[</span><span class='symbol'>:limit</span><span class='rbracket'>]</span>
+  <span class='ivar'>@skip</span> <span class='op'>=</span> <span class='id options'>options</span><span class='lbracket'>[</span><span class='symbol'>:skip</span><span class='rbracket'>]</span>
+
+  <span class='ivar'>@message</span> <span class='op'>=</span> <span class='const'>QueryMessage</span><span class='period'>.</span><span class='id new'>new</span> <span class='kw'>self</span><span class='comma'>,</span> 
+                              <span class='label'>conditions:</span> <span class='ivar'>@conditions</span><span class='comma'>,</span> 
+                              <span class='label'>fields:</span> <span class='ivar'>@fields</span><span class='comma'>,</span> 
+                              <span class='label'>limit:</span> <span class='ivar'>@limit</span><span class='comma'>,</span> 
+                              <span class='label'>skip:</span> <span class='ivar'>@skip</span>
+  
+  
+  <span class='comment'># Parse the reply's header and pass it on. We declare this in the initializer
+</span>  <span class='comment'># because we want it to be the first callback that's run; we either fail early
+</span>  <span class='comment'># or send slightly more refined data to our subclasses.
+</span>  <span class='comment'>#
+</span>  <span class='comment'># @see http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol
+</span>  <span class='id callback'>callback</span> <span class='kw'>do</span> <span class='op'>|</span><span class='id mongo_data'>mongo_data</span><span class='op'>|</span> 
+    <span class='id header'>header</span> <span class='op'>=</span> <span class='lbrace'>{</span><span class='rbrace'>}</span>
+    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:message_length</span><span class='rbracket'>]</span><span class='comma'>,</span>
+    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:request_id</span><span class='rbracket'>]</span><span class='comma'>,</span>
+    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:response_to</span><span class='rbracket'>]</span><span class='comma'>,</span>
+    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:op_code</span><span class='rbracket'>]</span><span class='comma'>,</span>
+    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:response_flags</span><span class='rbracket'>]</span><span class='comma'>,</span>
+    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:cursor_id</span><span class='rbracket'>]</span><span class='comma'>,</span>  <span class='comment'># The 'Q' pack option may get 64-bit endianness wrong, but we don't care; we're not going to _use_ this number, just send it back to the DB.
+</span>    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:starting_from</span><span class='rbracket'>]</span><span class='comma'>,</span>
+    <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:number_returned</span><span class='rbracket'>]</span><span class='comma'>,</span>
+    <span class='id documents'>documents</span> <span class='op'>=</span> <span class='id mongo_data'>mongo_data</span><span class='period'>.</span><span class='id unpack'>unpack</span><span class='lparen'>(</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>VVVVVQVVa*</span><span class='tstring_end'>'</span></span><span class='rparen'>)</span>
+    
+    <span class='comment'># Fail early, fail often
+</span>    <span class='id fail'>fail</span> <span class='const'>HeaderError</span><span class='period'>.</span><span class='id new'>new</span><span class='lparen'>(</span><span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Incomplete reply! Expected </span><span class='embexpr_beg'>#{</span><span class='id mongo_data'>mongo_data</span><span class='period'>.</span><span class='id bytesize'>bytesize</span><span class='rbrace'>}</span><span class='tstring_content'> bytes, got </span><span class='embexpr_beg'>#{</span><span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:message_length</span><span class='rbracket'>]</span><span class='rbrace'>}</span><span class='tstring_content'>.</span><span class='tstring_end'>&quot;</span></span><span class='rparen'>)</span> <span class='kw'>unless</span> <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:message_length</span><span class='rbracket'>]</span> <span class='op'>==</span> <span class='id mongo_data'>mongo_data</span><span class='period'>.</span><span class='id bytesize'>bytesize</span>
+    
+    <span class='id fail'>fail</span> <span class='const'>HeaderError</span><span class='period'>.</span><span class='id new'>new</span><span class='lparen'>(</span><span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Wrong reply! The handler for request </span><span class='embexpr_beg'>#{</span><span class='ivar'>@message</span><span class='period'>.</span><span class='id request_id'>request_id</span><span class='rbrace'>}</span><span class='tstring_content'> got an answer to request </span><span class='embexpr_beg'>#{</span><span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:response_to</span><span class='rbracket'>]</span><span class='rbrace'>}</span><span class='tstring_content'>.</span><span class='tstring_end'>&quot;</span></span><span class='rparen'>)</span> <span class='kw'>unless</span> <span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:response_to</span><span class='rbracket'>]</span> <span class='op'>==</span> <span class='id message'>message</span><span class='period'>.</span><span class='id request_id'>request_id</span>
+    
+    <span class='comment'># Check our response flags for errors
+</span>    <span class='id fail'>fail</span> <span class='const'>QueryError</span><span class='period'>.</span><span class='id new'>new</span><span class='lparen'>(</span><span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>MongoDB reports unknown cursor for cursor id </span><span class='embexpr_beg'>#{</span><span class='id message'>message</span><span class='period'>.</span><span class='id cursor_id'>cursor_id</span><span class='rbrace'>}</span><span class='tstring_content'>.</span><span class='tstring_end'>&quot;</span></span><span class='rparen'>)</span> <span class='kw'>if</span> <span class='lparen'>(</span><span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:response_flags</span><span class='rbracket'>]</span> <span class='op'>&amp;</span> <span class='int'>1</span><span class='rparen'>)</span> <span class='op'>&gt;</span> <span class='int'>0</span>
+    <span class='id fail'>fail</span> <span class='const'>QueryError</span><span class='period'>.</span><span class='id new'>new</span><span class='lparen'>(</span><span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>MongoDB reports query failure: </span><span class='embexpr_beg'>#{</span><span class='id documents'>documents</span><span class='rbrace'>}</span><span class='tstring_end'>&quot;</span></span><span class='rparen'>)</span> <span class='kw'>if</span> <span class='lparen'>(</span><span class='id header'>header</span><span class='lbracket'>[</span><span class='symbol'>:response_flags</span><span class='rbracket'>]</span> <span class='op'>&amp;</span> <span class='int'>2</span><span class='rparen'>)</span> <span class='op'>&gt;</span> <span class='int'>0</span>
+    
+    <span class='comment'># Pass our parsed results down the chain
+</span>    <span class='id set_deferred_status'>set_deferred_status</span> <span class='symbol'>:succeeded</span><span class='comma'>,</span> <span class='id header'>header</span><span class='comma'>,</span> <span class='id documents'>documents</span>
+  <span class='kw'>end</span>
+  
+  <span class='comment'># Catch failures.  If we don't get an exception back, it was probably a timeout. Confirm this and
+</span>  <span class='comment'># raise the appropriate exception for downstream handling.
+</span>  <span class='id errback'>errback</span> <span class='kw'>do</span> <span class='op'>|</span><span class='id exception'>exception</span><span class='op'>=</span><span class='kw'>nil</span><span class='op'>|</span>
+    <span class='kw'>unless</span> <span class='id exception'>exception</span>
+      <span class='kw'>if</span> <span class='id message'>message</span><span class='period'>.</span><span class='id delivered_at'>delivered_at</span> <span class='kw'>and</span> <span class='lparen'>(</span><span class='const'>Time</span><span class='period'>.</span><span class='id now'>now</span><span class='period'>.</span><span class='id utc'>utc</span> <span class='op'>-</span> <span class='id message'>message</span><span class='period'>.</span><span class='id delivered_at'>delivered_at</span><span class='rparen'>)</span> <span class='op'>&gt;=</span> <span class='id database'>database</span><span class='period'>.</span><span class='id timeout'>timeout</span>
+        <span class='id fail'>fail</span> <span class='const'>TimeoutError</span><span class='period'>.</span><span class='id new'>new</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Request </span><span class='embexpr_beg'>#{</span><span class='id message'>message</span><span class='period'>.</span><span class='id request_id'>request_id</span><span class='rbrace'>}</span><span class='tstring_content'> timed out.</span><span class='tstring_end'>&quot;</span></span>
+      <span class='kw'>else</span>
+        <span class='id fail'>fail</span> <span class='const'>ResponseError</span><span class='period'>.</span><span class='id new'>new</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Unknown error on request </span><span class='embexpr_beg'>#{</span><span class='id message'>message</span><span class='period'>.</span><span class='id request_id'>request_id</span><span class='rbrace'>}</span><span class='tstring_content'>.</span><span class='tstring_end'>&quot;</span></span>
+      <span class='kw'>end</span>
+    <span class='kw'>end</span>
+  <span class='kw'>end</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+  
+</div>
+
+  <div id="instance_attr_details" class="attr_details">
+    <h2>Instance Attribute Details</h2>
+    
+      
+      <span id=""></span>
+      <span id="collection-instance_method"></span>
+      <div class="method_details first">
+  <p class="signature first" id="collection-instance_method">
+  
+    - (<tt>Object</tt>) <strong>collection</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute collection
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+21
+22
+23</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 21</span>
+
+<span class='kw'>def</span> <span class='id collection'>collection</span>
+  <span class='ivar'>@collection</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="conditions-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="conditions-instance_method">
+  
+    - (<tt>Object</tt>) <strong>conditions</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute conditions
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+21
+22
+23</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 21</span>
+
+<span class='kw'>def</span> <span class='id conditions'>conditions</span>
+  <span class='ivar'>@conditions</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="database-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="database-instance_method">
+  
+    - (<tt>Object</tt>) <strong>database</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute database
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+21
+22
+23</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 21</span>
+
+<span class='kw'>def</span> <span class='id database'>database</span>
+  <span class='ivar'>@database</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="fields-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="fields-instance_method">
+  
+    - (<tt>Object</tt>) <strong>fields</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute fields
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+21
+22
+23</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 21</span>
+
+<span class='kw'>def</span> <span class='id fields'>fields</span>
+  <span class='ivar'>@fields</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="limit-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="limit-instance_method">
+  
+    - (<tt>Object</tt>) <strong>limit</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute limit
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+21
+22
+23</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 21</span>
+
+<span class='kw'>def</span> <span class='id limit'>limit</span>
+  <span class='ivar'>@limit</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="message-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="message-instance_method">
+  
+    - (<tt>Object</tt>) <strong>message</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute message
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+21
+22
+23</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 21</span>
+
+<span class='kw'>def</span> <span class='id message'>message</span>
+  <span class='ivar'>@message</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="skip-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="skip-instance_method">
+  
+    - (<tt>Object</tt>) <strong>skip</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute skip
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+21
+22
+23</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 21</span>
+
+<span class='kw'>def</span> <span class='id skip'>skip</span>
+  <span class='ivar'>@skip</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+  </div>
+
+
+  <div id="class_method_details" class="method_details_list">
+    <h2>Class Method Details</h2>
+    
+    
+      <div class="method_details first">
+  <p class="signature first" id="run-class_method">
+  
+    + (<tt>Object</tt>) <strong>run</strong>(collection, conditions, options = {}, &amp;callback) 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+A convenience method that allows Agents to do their work in a single method
+call. Does the following:
+</p>
+<pre class="code">
+  1. Creates a new Agent object with the parameters given;
+  2. If a block is provided, assigns it to the new agent as a callback;
+  3. Calls the new agent's {#query} method;
+  4. Returns the new agent so that other reindeer games can be played.</pre>
+
+
+  </div>
+</div>
+<div class="tags">
+  <h3>Parameters:</h3>
+<ul class="param">
+  
+    <li>
+      
+        <span class='type'>(<tt><span class='object_link'><a href="Collection.html" title="Crunch::Collection (class)">Collection</a></span></tt>)</span>
+      
+      
+        <span class='name'>collection</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+We need to know where to ask
+</p>
+</div>
+      
+    </li>
+  
+    <li>
+      
+        <span class='type'>(<tt><span class='object_link'><a href="Fieldset.html" title="Crunch::Fieldset (class)">Fieldset</a></span></tt>)</span>
+      
+      
+        <span class='name'>conditions</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+We must have <em>something</em> to ask the Database
+</p>
+</div>
+      
+    </li>
+  
+    <li>
+      
+        <span class='type'>(<tt>Hash</tt>)</span>
+      
+      
+        <span class='name'>[Array]</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+a customizable set of options
+</p>
+</div>
+      
+    </li>
+  
+    <li>
+      
+        <span class='type'>(<tt>Hash</tt>)</span>
+      
+      
+        <span class='name'>[Integer]</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+a customizable set of options
+</p>
+</div>
+      
+    </li>
+  
+</ul>
+
+  
+    
+    
+    
+    
+    
+    
+    
+    
+
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+115
+116
+117
+118
+119
+120</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 115</span>
+
+<span class='kw'>def</span> <span class='kw'>self</span><span class='period'>.</span><span class='id run'>run</span><span class='lparen'>(</span><span class='id collection'>collection</span><span class='comma'>,</span> <span class='id conditions'>conditions</span><span class='comma'>,</span> <span class='id options'>options</span><span class='op'>=</span><span class='lbrace'>{</span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='op'>&amp;</span><span class='id callback'>callback</span><span class='rparen'>)</span>
+  <span class='id agent'>agent</span> <span class='op'>=</span> <span class='kw'>self</span><span class='period'>.</span><span class='id new'>new</span> <span class='id collection'>collection</span><span class='comma'>,</span> <span class='id conditions'>conditions</span><span class='comma'>,</span> <span class='id options'>options</span>
+  <span class='id agent'>agent</span><span class='period'>.</span><span class='id callback'>callback</span> <span class='op'>&amp;</span><span class='id callback'>callback</span> <span class='kw'>if</span> <span class='id callback'>callback</span>
+  <span class='id agent'>agent</span><span class='period'>.</span><span class='id deliver'>deliver</span>
+  <span class='id agent'>agent</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+  </div>
+
+  <div id="instance_method_details" class="method_details_list">
+    <h2>Instance Method Details</h2>
+    
+    
+      <div class="method_details first">
+  <p class="signature first" id="collection_name-instance_method">
+  
+    - (<tt>Object</tt>) <strong>collection_name</strong> 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+The fully qualified &#8220;database.collection&#8221; name.  (We query the
+Collection for it.)
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+99
+100
+101</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 99</span>
+
+<span class='kw'>def</span> <span class='id collection_name'>collection_name</span>
+  <span class='id collection'>collection</span><span class='period'>.</span><span class='id full_name'>full_name</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      <div class="method_details ">
+  <p class="signature " id="deliver-instance_method">
+  
+    - (<tt>Object</tt>) <strong>deliver</strong> 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Sends the message to the Database and waits for the reply.
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+93
+94
+95
+96</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/agent.rb', line 93</span>
+
+<span class='kw'>def</span> <span class='id deliver'>deliver</span>
+  <span class='id database'>database</span> <span class='op'>&lt;&lt;</span> <span class='id message'>message</span>
+  <span class='id timeout'>timeout</span><span class='lparen'>(</span><span class='id database'>database</span><span class='period'>.</span><span class='id timeout'>timeout</span><span class='rparen'>)</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+  </div>
+
+</div>
+    
+    <div id="footer">
+  Generated on Mon Jan 31 17:12:15 2011 by 
+  <a href="http://yardoc.org" title="Yay! A Ruby Documentation Tool" target="_parent">yard</a>
+  0.6.4 (ruby-1.9.2).
+</div>
+
+  </body>
+</html>

@@ -1,0 +1,1036 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <meta name="Content-Type" content="text/html; charset=utf-8" />
+<title>Class: Crunch::UpdateMessage</title>
+<link rel="stylesheet" href="../css/style.css" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="../css/common.css" type="text/css" media="screen" charset="utf-8" />
+
+<script type="text/javascript" charset="utf-8">
+  relpath = '..';
+  if (relpath != '') relpath += '/';
+</script>
+<script type="text/javascript" charset="utf-8" src="../js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="../js/app.js"></script>
+
+  </head>
+  <body>
+    <script type="text/javascript" charset="utf-8">
+      if (window.top.frames.main) document.body.className = 'frames';
+    </script>
+    
+    <div id="header">
+      <div id="menu">
+  
+    <a href="../_index.html">Index (U)</a> &raquo; 
+    <span class='title'><span class='object_link'><a href="../Crunch.html" title="Crunch (module)">Crunch</a></span></span>
+     &raquo; 
+    <span class="title">UpdateMessage</span>
+  
+  
+  <div class="noframes"><span class="title">(</span><a href="." target="_top">no frames</a><span class="title">)</span></div>
+</div>
+
+      <div id="search">
+  <a id="class_list_link" href="#">Class List</a>
+  <a id="method_list_link" href="#">Method List</a>
+  <a id ="file_list_link" href="#">File List</a>
+</div>
+
+      <div class="clear"></div>
+    </div>
+    
+    <iframe id="search_frame"></iframe>
+    
+    <div id="content"><h1>Class: Crunch::UpdateMessage
+  
+  
+  
+</h1>
+
+<dl class="box">
+  
+    <dt class="r1">Inherits:</dt>
+    <dd class="r1">
+      <span class="inheritName"><span class='object_link'><a href="Message.html" title="Crunch::Message (class)">Message</a></span></span>
+      
+        <ul class="fullTree">
+          <li>Object</li>
+          
+            <li class="next">BSON::ByteBuffer</li>
+          
+            <li class="next"><span class='object_link'><a href="Message.html" title="Crunch::Message (class)">Message</a></span></li>
+          
+            <li class="next">Crunch::UpdateMessage</li>
+          
+        </ul>
+        <a href="#" class="inheritanceTree">show all</a>
+      
+      </dd>
+    
+  
+  
+    
+  
+    
+  
+  
+  
+    <dt class="r2 last">Defined in:</dt>
+    <dd class="r2 last">lib/crunch/messages/update_message.rb</dd>
+  
+</dl>
+<div class="clear"></div>
+
+<h2>Overview</h2><div class="docstring">
+  <div class="discussion">
+    <p>
+Produces an instruction in the MongoDB Wire Protocol to update or
+&#8216;upsert&#8217; a  document in the database.  Always requires a
+collection and an <b>update</b> hash. May also take either an <b>id</b> or
+a <b>selector</b> attribute.  (Supplying both will simply  override the
+selector&#8217;s &#8216;_id&#8217; field.)  If neither is supplied, the
+updates will be  applied either to the first document in the collection or
+the entire collection,  depending on the <b>multi</b> attribute.
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div>
+
+  
+  
+  
+  
+  
+  <h2>Instance Attribute Summary <small>(<a href="#" class="summary_toggle">collapse</a>)</small></h2>
+  <ul class="summary">
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#collection_name-instance_method" title="#collection_name (instance method)">- (Object) <strong>collection_name</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute collection_name.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#multi-instance_method" title="#multi (instance method)">- (Object) <strong>multi</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute multi.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#selector-instance_method" title="#selector (instance method)">- (Object) <strong>selector</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute selector.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#update-instance_method" title="#update (instance method)">- (Object) <strong>update</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute update.
+</p>
+</div></span>
+  
+</li>
+
+    
+      <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#upsert-instance_method" title="#upsert (instance method)">- (Object) <strong>upsert</strong> </a>
+    
+
+    
+  </span>
+  
+  
+    <span class="note title readonly">readonly</span>
+    
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Returns the value of attribute upsert.
+</p>
+</div></span>
+  
+</li>
+
+    
+  </ul>
+
+
+  
+    <h2>
+      Instance Method Summary
+      <small>(<a href="#" class="summary_toggle">collapse</a>)</small>
+    </h2>
+
+    <ul class="summary">
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#body-instance_method" title="#body (instance method)">- (Object) <strong>body</strong> </a>
+    
+
+    
+  </span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'></div></span>
+  
+</li>
+
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#id-instance_method" title="#id (instance method)">- (Object) <strong>id</strong> </a>
+    
+
+    
+  </span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Gets the selector[&#8216;_id&#8217;].
+</p>
+</div></span>
+  
+</li>
+
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#initialize-instance_method" title="#initialize (instance method)">- (UpdateMessage) <strong>initialize</strong>(collection, opts = {}) </a>
+    
+
+    
+  </span>
+  
+    <span class="note title constructor">constructor</span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Requires a collection, and takes a hash of options (any of which can also
+be set via attributes after initialization).
+</p>
+</div></span>
+  
+</li>
+
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#multi%3F-instance_method" title="#multi? (instance method)">- (Boolean) <strong>multi?</strong> </a>
+    
+
+    
+  </span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Forces #multi into a Boolean.
+</p>
+</div></span>
+  
+</li>
+
+      
+        <li class="public ">
+  <span class="summary_signature">
+    
+      <a href="#upsert%3F-instance_method" title="#upsert? (instance method)">- (Boolean) <strong>upsert?</strong> </a>
+    
+
+    
+  </span>
+  
+  
+  
+  
+  
+  
+
+  
+    <span class="summary_desc"><div class='inline'><p>
+Forces #upsert into a Boolean.
+</p>
+</div></span>
+  
+</li>
+
+      
+    </ul>
+  
+
+
+  
+  
+  
+  
+  
+  
+  
+  <h3 class="inherited">Methods inherited from <span class='object_link'><a href="Message.html" title="Crunch::Message (class)">Message</a></span></h3>
+  <p class="inherited"><span class='object_link'><a href="Message.html#deliver-instance_method" title="Crunch::Message#deliver (method)">#deliver</a></span>, <span class='object_link'><a href="Message.html#opcode-class_method" title="Crunch::Message.opcode (method)">opcode</a></span>, <span class='object_link'><a href="Message.html#request_id-instance_method" title="Crunch::Message#request_id (method)">#request_id</a></span>, <span class='object_link'><a href="Message.html#request_id-class_method" title="Crunch::Message.request_id (method)">request_id</a></span></p>
+
+  <div id="constructor_details" class="method_details_list">
+  <h2>Constructor Details</h2>
+  
+    <div class="method_details first">
+  <p class="signature first" id="initialize-instance_method">
+  
+    - (<tt><span class='object_link'><a href="" title="Crunch::UpdateMessage (class)">UpdateMessage</a></span></tt>) <strong>initialize</strong>(collection, opts = {}) 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Requires a collection, and takes a hash of options (any of which can also
+be set via attributes after initialization).  The only
+&#8216;required&#8217; option is the update document.
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  <h3>Parameters:</h3>
+<ul class="param">
+  
+    <li>
+      
+        <span class='type'>(<tt><span class='object_link'><a href="Collection.html" title="Crunch::Collection (class)">Collection</a></span></tt>)</span>
+      
+      
+        <span class='name'>collection</span>
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+What we&#8217;re updating
+</p>
+</div>
+      
+    </li>
+  
+    <li>
+      
+        <span class='type'>(<tt>optional</tt>, <tt>Hash</tt>)</span>
+      
+      
+        <span class='name'>opts</span>
+      
+      
+        <em class="default">(defaults to: <tt>{}</tt>)</em>
+      
+      
+        &mdash;
+        <div class='inline'><p>
+Attribute parameters
+</p>
+</div>
+      
+    </li>
+  
+</ul>
+
+  
+    
+    
+    
+    
+    <h3>Options Hash (<tt>opts</tt>):</h3>
+    <ul class="option">
+      
+        <li>
+          <span class="type">(<tt>Hash</tt>, <tt><span class='object_link'><a href="Fieldset.html" title="Crunch::Fieldset (class)">Fieldset</a></span></tt>)</span>
+          <span class="name">:update</span>
+          <span class="default">
+            
+              &mdash; default:
+              <tt>{}</tt>
+            
+          </span>
+          &mdash; <div class='inline'><p>
+The values we&#8217;re updating &#8212; either the complete document or a
+hash of atomic update operators (i.e. &#8217;$set&#8217; and friends)
+</p>
+</div>
+        </tr>
+      
+        <li>
+          <span class="type">(<tt>Hash</tt>, <tt><span class='object_link'><a href="Fieldset.html" title="Crunch::Fieldset (class)">Fieldset</a></span></tt>)</span>
+          <span class="name">:selector</span>
+          <span class="default">
+            
+              &mdash; default:
+              <tt>{}</tt>
+            
+          </span>
+          &mdash; <div class='inline'><p>
+If specified, describes the document(s) to be updated
+</p>
+</div>
+        </tr>
+      
+        <li>
+          <span class="type">(<tt>Object</tt>)</span>
+          <span class="name">:id</span>
+          <span class="default">
+            
+          </span>
+          &mdash; <div class='inline'><p>
+If specified, the message&#8217;s selector will include => <em>val</em> (overrides any id already in the selector)
+</p>
+</div>
+        </tr>
+      
+        <li>
+          <span class="type">(<tt>Boolean</tt>)</span>
+          <span class="name">:upsert</span>
+          <span class="default">
+            
+          </span>
+          &mdash; <div class='inline'><p>
+If true, will create a new record if no document matches the selector (a
+blank selector matches the first document)
+</p>
+</div>
+        </tr>
+      
+        <li>
+          <span class="type">(<tt>Boolean</tt>)</span>
+          <span class="name">:multi</span>
+          <span class="default">
+            
+          </span>
+          &mdash; <div class='inline'><p>
+If true, updates ALL documents matching the selector rather than the first
+</p>
+</div>
+        </tr>
+      
+    </ul>
+  
+
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 24</span>
+
+<span class='kw'>def</span> <span class='id initialize'>initialize</span><span class='lparen'>(</span><span class='id collection'>collection</span><span class='comma'>,</span> <span class='id opts'>opts</span><span class='op'>=</span><span class='lbrace'>{</span><span class='rbrace'>}</span><span class='rparen'>)</span>
+  <span class='ivar'>@collection_name</span> <span class='op'>=</span> <span class='id collection'>collection</span><span class='period'>.</span><span class='id full_name'>full_name</span>
+  <span class='ivar'>@update</span> <span class='op'>=</span> <span class='const'>Fieldset</span><span class='period'>.</span><span class='id new'>new</span> <span class='id opts'>opts</span><span class='lbracket'>[</span><span class='symbol'>:update</span><span class='rbracket'>]</span>
+  <span class='kw'>if</span> <span class='id opts'>opts</span><span class='lbracket'>[</span><span class='symbol'>:id</span><span class='rbracket'>]</span>
+    <span class='ivar'>@selector</span> <span class='op'>=</span> <span class='const'>Fieldset</span><span class='period'>.</span><span class='id new'>new</span> <span class='lparen'>(</span><span class='id opts'>opts</span><span class='lbracket'>[</span><span class='symbol'>:selector</span><span class='rbracket'>]</span> <span class='op'>||</span> <span class='lbrace'>{</span><span class='rbrace'>}</span><span class='rparen'>)</span><span class='period'>.</span><span class='id merge'>merge</span><span class='lparen'>(</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>_id</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='id opts'>opts</span><span class='lbracket'>[</span><span class='symbol'>:id</span><span class='rbracket'>]</span><span class='rparen'>)</span>
+  <span class='kw'>else</span>
+    <span class='ivar'>@selector</span> <span class='op'>=</span> <span class='const'>Fieldset</span><span class='period'>.</span><span class='id new'>new</span> <span class='id opts'>opts</span><span class='lbracket'>[</span><span class='symbol'>:selector</span><span class='rbracket'>]</span>
+  <span class='kw'>end</span>
+  <span class='ivar'>@upsert</span> <span class='op'>=</span> <span class='id opts'>opts</span><span class='lbracket'>[</span><span class='symbol'>:upsert</span><span class='rbracket'>]</span>
+  <span class='ivar'>@multi</span> <span class='op'>=</span> <span class='id opts'>opts</span><span class='lbracket'>[</span><span class='symbol'>:multi</span><span class='rbracket'>]</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+  
+</div>
+
+  <div id="instance_attr_details" class="attr_details">
+    <h2>Instance Attribute Details</h2>
+    
+      
+      <span id=""></span>
+      <span id="collection_name-instance_method"></span>
+      <div class="method_details first">
+  <p class="signature first" id="collection_name-instance_method">
+  
+    - (<tt>Object</tt>) <strong>collection_name</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute collection_name
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+12
+13
+14</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 12</span>
+
+<span class='kw'>def</span> <span class='id collection_name'>collection_name</span>
+  <span class='ivar'>@collection_name</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="multi-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="multi-instance_method">
+  
+    - (<tt>Object</tt>) <strong>multi</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute multi
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+12
+13
+14</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 12</span>
+
+<span class='kw'>def</span> <span class='id multi'>multi</span>
+  <span class='ivar'>@multi</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="selector-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="selector-instance_method">
+  
+    - (<tt>Object</tt>) <strong>selector</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute selector
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+12
+13
+14</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 12</span>
+
+<span class='kw'>def</span> <span class='id selector'>selector</span>
+  <span class='ivar'>@selector</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="update-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="update-instance_method">
+  
+    - (<tt>Object</tt>) <strong>update</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute update
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+12
+13
+14</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 12</span>
+
+<span class='kw'>def</span> <span class='id update'>update</span>
+  <span class='ivar'>@update</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      
+      <span id=""></span>
+      <span id="upsert-instance_method"></span>
+      <div class="method_details ">
+  <p class="signature " id="upsert-instance_method">
+  
+    - (<tt>Object</tt>) <strong>upsert</strong>  <span class="extras">(readonly)</span>
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Returns the value of attribute upsert
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+12
+13
+14</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 12</span>
+
+<span class='kw'>def</span> <span class='id upsert'>upsert</span>
+  <span class='ivar'>@upsert</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+  </div>
+
+
+  <div id="instance_method_details" class="method_details_list">
+    <h2>Instance Method Details</h2>
+    
+    
+      <div class="method_details first">
+  <p class="signature first" id="body-instance_method">
+  
+    - (<tt>Object</tt>) <strong>body</strong> 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    
+
+  </div>
+</div>
+<div class="tags">
+  
+  <h3>See Also:</h3>
+  <ul class="see">
+    
+      <li><a href="http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol#MongoWireProtocol-OPUPDATE" target="_parent" title="http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol#MongoWireProtocol-OPUPDATE">http://www.mongodb.org/display/DOCS/Mongo+Wire+Protocol#MongoWireProtocol-OPUPDATE</a></li>
+    
+  </ul>
+
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 55</span>
+
+<span class='kw'>def</span> <span class='id body'>body</span>     
+  <span class='id flag'>flag</span> <span class='op'>=</span> <span class='kw'>case</span>
+  <span class='kw'>when</span> <span class='id upsert?'>upsert?</span> <span class='op'>&amp;&amp;</span> <span class='id multi?'>multi?</span> <span class='kw'>then</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>\x03</span><span class='tstring_end'>&quot;</span></span>  <span class='comment'># Hooray for short-circuiting case statements and only two options!
+</span>  <span class='kw'>when</span> <span class='id multi?'>multi?</span> <span class='kw'>then</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>\x02</span><span class='tstring_end'>&quot;</span></span>
+  <span class='kw'>when</span> <span class='id upsert?'>upsert?</span> <span class='kw'>then</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>\x01</span><span class='tstring_end'>&quot;</span></span>
+  <span class='kw'>else</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>\x00</span><span class='tstring_end'>&quot;</span></span>
+  <span class='kw'>end</span>
+  
+  <span class='comment'># The format is:
+</span>  <span class='comment'># 1. Zero in INT32  (Yeah, I don't know why either.)
+</span>  <span class='comment'># 2. Collection name and null terminator
+</span>  <span class='comment'># 3. Bit vector for upsert &amp; multi flags (still little-endian!)
+</span>  <span class='comment'># 4. Selector document
+</span>  <span class='comment'># 5. Update document
+</span>  <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>\x00\x00\x00\x00</span><span class='embexpr_beg'>#{</span><span class='ivar'>@collection_name</span><span class='rbrace'>}</span><span class='tstring_content'>\x00</span><span class='embexpr_beg'>#{</span><span class='id flag'>flag</span><span class='rbrace'>}</span><span class='tstring_content'>\x00\x00\x00</span><span class='embexpr_beg'>#{</span><span class='ivar'>@selector</span><span class='rbrace'>}</span><span class='embexpr_beg'>#{</span><span class='ivar'>@update</span><span class='rbrace'>}</span><span class='tstring_end'>&quot;</span></span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      <div class="method_details ">
+  <p class="signature " id="id-instance_method">
+  
+    - (<tt>Object</tt>) <strong>id</strong> 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Gets the selector[&#8216;_id&#8217;]
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  <h3>Returns:</h3>
+<ul class="return">
+  
+    <li>
+      
+        <span class='type'>(<tt>Object</tt>)</span>
+      
+      
+      
+      
+        &mdash;
+        <div class='inline'><p>
+selector[&#8216;_id&#8217;]
+</p>
+</div>
+      
+    </li>
+  
+</ul>
+
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+38
+39
+40</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 38</span>
+
+<span class='kw'>def</span> <span class='id id'>id</span>
+  <span class='id selector'>selector</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>_id</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      <div class="method_details ">
+  <p class="signature " id="multi?-instance_method">
+  
+    - (<tt>Boolean</tt>) <strong>multi?</strong> 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Forces #multi into a Boolean.
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  <h3>Returns:</h3>
+<ul class="return">
+  
+    <li>
+      
+        <span class='type'>(<tt>Boolean</tt>)</span>
+      
+      
+      
+      
+    </li>
+  
+</ul>
+
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+50
+51
+52</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 50</span>
+
+<span class='kw'>def</span> <span class='id multi?'>multi?</span>
+  <span class='op'>!</span><span class='op'>!</span><span class='ivar'>@multi</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+      <div class="method_details ">
+  <p class="signature " id="upsert?-instance_method">
+  
+    - (<tt>Boolean</tt>) <strong>upsert?</strong> 
+  
+
+  
+</p><div class="docstring">
+  <div class="discussion">
+    <p>
+Forces #upsert into a Boolean.
+</p>
+
+
+  </div>
+</div>
+<div class="tags">
+  <h3>Returns:</h3>
+<ul class="return">
+  
+    <li>
+      
+        <span class='type'>(<tt>Boolean</tt>)</span>
+      
+      
+      
+      
+    </li>
+  
+</ul>
+
+</div><table class="source_code">
+  <tr>
+    <td>
+      <pre class="lines">
+
+
+44
+45
+46</pre>
+    </td>
+    <td>
+      <pre class="code"><span class="info file"># File 'lib/crunch/messages/update_message.rb', line 44</span>
+
+<span class='kw'>def</span> <span class='id upsert?'>upsert?</span>
+  <span class='op'>!</span><span class='op'>!</span><span class='ivar'>@upsert</span>
+<span class='kw'>end</span></pre>
+    </td>
+  </tr>
+</table>
+</div>
+    
+  </div>
+
+</div>
+    
+    <div id="footer">
+  Generated on Mon Jan 31 17:12:16 2011 by 
+  <a href="http://yardoc.org" title="Yay! A Ruby Documentation Tool" target="_parent">yard</a>
+  0.6.4 (ruby-1.9.2).
+</div>
+
+  </body>
+</html>
