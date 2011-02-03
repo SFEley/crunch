@@ -12,7 +12,7 @@ module Crunch
     it "knows when it was delivered" do
       @this.delivered_at.should be_nil
       @this.deliver
-      @this.delivered_at.should be_close(Time.now, 1)
+      @this.delivered_at.should be_within(1).of(Time.now)
     end
     
     it "starts with its size" do
