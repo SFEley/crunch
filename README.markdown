@@ -1,14 +1,14 @@
 Crunch
 ======
-Crunch is an alternative MongoDB driver with an emphasis on high concurrency, atomic update operations, and document integrity. It uses EventMachine for non-blocking writes and reads, with optional synchronous wrappers for easy integration with non-evented applications. Its API is simpler and more Rubyish than the official MongoDB Ruby driver, but aims to support the same range of MongoDB features.
+Crunch is an alternative MongoDB driver with an emphasis on high concurrency, atomic update operations, and document integrity. It uses EventMachine for non-blocking writes and reads, with synchronous fallback for easy integration with non-evented applications. Its API is simpler and more Rubyish than the official MongoDB Ruby driver, but aims to support the same range of MongoDB features.
 
 _(**DISCLAIMER:** It isn't fully baked yet.  This README was written early in the process to document the design principles.  Much of what you'll read below doesn't work yet, and any of this is subject to change as ideas are proven unsound through experimentation.  Please don't try to use this in any serious code until it's ready.  You'll know when it's ready because this text won't be here.)_
 
 Structure
 ---------
-Although it wraps the Mongo wire protocol, Crunch diverges conceptually from the "flat struct" operations that the protocol encourages.  It's always bugged me a bit that Mongo interfaces overload the collection class with document-specific operations, while documents themselves are unclassed hashes with vague limitations.  Meanwhile, the division of responsibility between connections, databases, and collections is murky and often overlapping.  This isn't a flaw in Mongo's architecture, nor is it bad coding on the part of the driver developers.  It comes from trying to impose a _thin_ object-oriented layer on top of a purely functional binary protocol.  
+Although it wraps the Mongo wire protocol, Crunch diverges conceptually from the "flat struct" operations that the protocol encourages.  It's always bugged me that Mongo interfaces overload the collection class with document-specific operations, while documents themselves are simple hashes with vague limitations.  Meanwhile, the division of responsibility between connections, databases, and collections is murky and often overlapping.  This isn't a flaw in Mongo's architecture, nor is it bad coding on the part of the driver developers.  It comes from trying to impose a _thin_ object-oriented layer on top of a purely functional binary protocol.  
 
-Crunch offers a different perspective on the same actions. At the highest level, there are three major classes to understand: the **Database**, the **Query** (of which **Collection** is a subclass), and the **Fieldset** (of which **Document** is a subclass). All database structures are _immutable_ -- once created, they can't be changed. An intermediate level manages connections and BSON serialized messages conforming to Mongo's wire protocol, and EventMachine takes care of sending and receiving binary data from the server.
+Crunch presents a more object-driven layer over the same operations. At the highest level, there are four major classes to understand: the **Database**, the **Collection**, the **Query**, and the **Document**.  The **Fieldset** utility class (of which **Document** is a subclass) is used in place of hashes.  Any Crunch objects representing data are _immutable_ -- once created, they can't be changed. An intermediate level manages connections and BSON serialized messages conforming to Mongo's wire protocol, and EventMachine takes care of sending and receiving binary data from the server.
 
 ![Class diagram](https://sfe_misc.s3.amazonaws.com/crunch_class_diagram.svg)
 
@@ -17,8 +17,9 @@ Synchronous vs. Asynchronous
 Crunch's relationship with EventMachine can be summarized as follows:
 
 1. Communicate with the MongoDB server entirely using asynchronous calls and callbacks.
-2. By default, sleep until the answers come back so that the user doesn't have to understand step 1.
-3. Provide options and bang-methods (e.g., `.update!` instead of `.update`) so that users who _know_ what they're doing aren't bogged down by step 2.
+2. Pre-load a reasonable amount of data in the event loop before the application asks for it.
+3. Allow the application to provide blocks (callbacks) to operate on data as it comes in.
+4. If the application does _not_ provide callbacks, and asks for data we don't have yet, get the data and make it wait.  We call this _synchronous fallback_, but in practice it's probably more common.
 
 That's the Crunch pattern in a nutshell. More primer material follows; if you understand asynchronous programming already, you can skip the next subsection.
 
@@ -34,11 +35,23 @@ All of these blocks are **callbacks.**  Javascript developers are probably snori
 
 ### Crunch and the Loop ###
 
-Crunch requires an EventMachine reactor loop to be running.  If you are already writing an EM-driven application, or using Thin or another evented application server, great. EventMachine will already be running and Crunch will simply insert its own actions into the loop.  If your architecture is asynchronous, you may wish to set the global option `Crunch.synchronous = false` so that you don't have to worry about when to use bang methods. (See the following sections.)
+Crunch requires an EventMachine reactor loop to be running.  If you are already writing an EM-driven application, or using Thin or another evented application server, great. Crunch will notice that EventMachine is already running and simply insert its own actions into the loop.  If EM _isn't_ running, the first call to `Database.connect` will start the EM reactor in a separate thread.
 
-Otherwise, if EM _isn't_ running, the first call to `Database.connect` will start the EM reactor in a separate thread.  Any Crunch methods that talk to a MongoDB server (and a few that don't) will run in that thread and set thread-safe attributes to indicate completion or state of readiness.  Most of the _synchronous_ methods in Crunch simply call the asynchronous forms, then use monitors to sleep until the object's state says it's done.
+The public interface of Crunch does _not_ take place in the EventMachine loop.  It runs in your own application's thread(s).  If you ask for a Mongo operation that does not require a response (i.e. an insert, update, or delete) it'll inject the proper code into the EM loop and return right away.  If you make a request that needs an answer (i.e. queries, or updates in 'safe mode') then the Crunch method you called will not return until the answer comes back.  You can bypass this behavior and make it return immediately by giving it a block to run on the response.
 
 It sounds complicated, but from the end user side we've tried to keep it simple.  It's the sane way to build a library that has asynchronous components without forcing you to twist your entire application around the library.  (As an aside, it's also why we didn't use Ruby 1.9 fibers instead of threads.  It's just no good for an EM-agnostic library: to make it work properly, _your_ code would have to know when to yield or resume to the EM reactor's fiber, and then it starts to get ugly.)
+
+Fieldset
+--------
+You'll encounter the **Crunch::Fieldset** class a lot when looking at other Crunch objects. It's a Hash subclass with some notable MongoDB-related differences:
+
+* It's immutable. Once created, you can't change the keys nor their values. The object freezes itself on initialization, and common Hash methods that would change the contents will raise an exception.
+* All keys are strings. If you initialize it with an ordinary hash, non-string keys will be converted to strings.
+* The `.to_s` string conversion method returns the fieldset as a BSON binary string. 
+
+Fieldsets are used throughout Crunch for any MongoDB action involving "a BSON document." (Which is most of them.) Query selectors, update operations, and many other attributes are Fieldsets.  The **Crunch::Document** class is a subset of Fieldset with a required *'\_id'* key and some extra behavior.
+
+In most cases there's no need to create Fieldsets manually -- they're automatically generated from the parameters passed to the various Crunch methods.  Hashes are deeply recursed, and arrays become hashes with values of _1._ (A common MongoDB idiom.) You can also produce a Fieldset from a BSON string or byte buffer. If you ever need to make one, see the documentation.
 
 
 Database
@@ -53,69 +66,61 @@ Groups and Documents make queries or updates by passing messages to their Databa
 
 Query
 -----
-The **Crunch::Query** class retrieves data from the database and presents it as an Array-like Enumerable. Unlike many other database libraries, basic Crunch queries are _immediate_ and _immutable_.  They'll ask the server for a cursor the moment they're instantiated (unless you flag them not to) and any changes made to retrieved data won't be reflected until you make another query. The server request is always asynchronous. Synchronous delays will only occur if you try to _read_ the data before it returns -- and you can still avoid them by passing a block.
+The **Crunch::Query** class retrieves data from the database and presents it as an Array-like Enumerable. Unlike many other database libraries, basic Crunch queries are _immediate_ and _immutable_.  They'll ask the server for a cursor the moment they're instantiated (unless you flag them not to) and any changes made to retrieved data won't be reflected until you make another query. The server request is always asynchronous. Synchronous delays will only occur if you try to _read_ the data before it comes back -- and you can still avoid them by passing a block.
 
-This behavior enables speed (the data's on its way before you start to look at it) and simplicity (the cursor itself is an internal detail hidden from the API). MongoDB never guarantees transactional isolation, but Crunch timestamps every server response, so you can know how stale your data might be and whether a refresh is needed. You never reload data in place; you simply clone the query and get the data again. Several other base classes use Queries under the hood.
+This design enables speed (the data's on its way before you start to look at it) and simplicity (the cursor itself is an internal detail hidden from the API). MongoDB never guarantees transactional isolation, but Crunch timestamps every server response, so you can know how stale your data might be and whether a refresh is needed. You never reload data in place; you simply clone the query and get the data again. Several other base classes use Queries under the hood.
 
 ### Creation ###
 You can create a Query in several ways, depending on how much work you already want done for you. The options hashes in the examples below may not make sense immediately; it'll be covered shortly.
 
 #### Directly ####
-Pass the database and collection (as a string or Collection object) in the first two parameters.  So:
+Pass a Collection object in the first parameter, and then any options or query selectors as a hash.  So:
 
     db = Database.connect 'babylon_5'
     collection = db.collection :characters
-    query = Query.new db, collection, 'species' => 'Vorlon', :limit => 1
+    query = Query.new collection, 'species' => 'Vorlon', :limit => 1
+    query.first['name']   #=> 'Kosh'
 
-...is precisely equivalent to:
 
-    db = Database.connect 'babylon_5'
-    query = Query.new db, 'characters', conditions: {species: 'Vorlon'}, limit: 1
-    
-#### From the Database ####
-Use the `query` method of the Database object, passing the collection (as a string or Collection object) in the first parameter:
-
-    query = db.query 'characters', 'role' => 'Commander', 'last_name' => /S[hi].*/, 'messianic' => true
-    query.collect {|c| c['last_name']}   #=> ['Sinclair', 'Sheridan']
-    
 #### From a Collection ####
-Use the `query` method. This time you only have to worry about your options hash:
+The Collection object has a `.query` method as a shortcut to the above. This time you only have to worry about your options hash:
     
-    collection = DB.collection 'characters'
-    query = collection.query 'species' => 'human', 'psi_rating' => {gte: 12}, 'personality' => {in: 'annoying'}
-    query.count  #=> 3  (by my reckoning)
-
+    query = collection.query 'characters', 'role' => 'Commander', 'name' => /J.+ S.+/, 'messianic' => true
+    query.collect {|c| c['name']}   #=> ['Jeffrey Sinclair', 'John Sheridan']
+ 
 #### From Another Query ####
-Queries can spawn other queries. The new query inherits all the options of its parent, but these can be added to or overridden:
+Queries can spawn other queries. The new query inherits all the options of its parent, which can be added to or overridden:
 
-    first_query = collection.query 'bald' => false, :fields => ['species']  # (Which species have hair?)
+    first_query = collection.query 'has_hair' => true
     first_query.collect {|c| c['species']}  #=> ['Human', 'Centauri'] 
-    second_query = first_query.query 'sex' => 'female'  # (Centauri women are bald)
-    second_query.collect {|c| c['species']}  #=> ['Human']  (includes post-season-2 Delenn as a technicality)
+    
+    second_query = first_query.query 'sex' => 'female'
+    second_query.collect {|c| c['species']}  #=> ['Human']  (Centauri women are bald)
+                                             #              (includes post-season-2 Delenn as a technicality)
     
 ### Retrieval ###
 The Query object is a self-contained capsule of data -- it contains both the question (via its initialization parameters) and the answers (via accessors).  For example:
 
     query = Query.new db, 'musicians', 'band' => 'The Beatles'
-    query.first  #=> {'_id' => [...], 'name' => 'John Lennon', ...}
-    query.next   #=> {'_id' => [...], 'name' => 'Paul McCartney', ...}
-    query[2]     #=> [{'_id' => [...], 'name' => 'Ringo Starr', ...}]
+    query.first  #=> <Document> {'_id' => [...], 'name' => 'John Lennon', ...}
+    query.next   #=> <Document> {'_id' => [...], 'name' => 'Paul McCartney', ...}
+    query[2]     #=> <Document> {'_id' => [...], 'name' => 'Ringo Starr', ...}
     query.any? {|beatle| beatle['name'] == 'Yoko Ono'}  #=> false
 
 Each item returned is a Document object (see below).  The interesting Query methods to get to them are summarized below; most of the other access behavior comes from the standard Enumerable mixin: 
 
-* `[]` - Returns the Document at the given index. If the data retrieval hasn't gotten that far yet, the method will block until it does. (_Note:_ Don't make the mistake of confusing Queries for Arrays just because of this bracket thingy. This is the _only_ array-like method.)
+* `[]` - Returns the Document at the given index. If the data retrieval hasn't gotten that far yet, the method will block until it does. (_Note:_ Don't make the mistake of confusing Queries for Arrays just because of this bracket thingy. This is not duck typing; most other array methods won't work.)
 * `.at` - A non-blocking accessor. Accepts an index like `[]` and a block of code, and will pass the document to the block upon retrieval. The return value is a proc that will return _false_ when called if the code has not yet been executed, _true_ if it has been, and raise any exceptions that arise during execution.
-* `.get` - Returns a document with a specified ID.  Faster than the `[]` index accessor if you know what you're looking for.  Non-blocking; if the specified document has not been retrieved for this query, it will simply return _nil._ 
+* `.get` - Returns a document with a specified *'\_id'*.  Faster than the `[]` index accessor if you know what you're looking for.  Non-blocking; if the specified document has not been retrieved for this query, it will simply return _nil._
 * `.first` - Returns the first document of the result set. If the data retrieval hasn't pulled the first record yet, the method will block until it does. (Call `.ready?` beforehand to avoid this blocking.)
-* `.last` - Returns the last document in the result set.  This requires traversing the entire cursor, so if the data retrieval is not yet complete, the method will block until all records have been loaded.
-* `.each` - Steps through the entire result set and passes each document to the provided block of code.  This method is synchronous and will block until the entire run is completed. Returns an Enumerator if no block is given, so that you can call `next` and friends at your leisure.
-* `.each!` - An asynchronous form of `each` that runs the provided block on each document in the EventMachine thread. Returns a proc that wil return _false_ if the iteration is not yet complete, _true_ if it is complete, and raise any exceptions that arise during execution.
+* `.last` - Returns the last document in the result set.  This requires traversing the entire cursor, so if the data retrieval is not yet complete, the method will block until all records have been loaded. (Call `.complete?` beforehand to avoid this blocking.)
+* `.each` - Steps through the entire result set. When given a block of code, passes each document to it, and will wait synchronously until the entire run is completed. If no block is given, returns an Enumerator so that you can call `.next` and friends at your leisure.
+* `.each!` - An asynchronous form of `each` that runs the provided block on each document in the EventMachine loop. Returns a proc that wil return _false_ if the iteration is not yet complete, _true_ if it is complete, and raise any exceptions that arise during execution.
 * `.size` - Returns the _current_ number of documents that have been loaded. See _Size vs. Count_ below.
 * `.total_size` - Loads the complete record set, then returns the final number of documents. See _Size vs. Count_ below.
 * `.count` - Returns the number of documents in the query as reported by MongoDB. Will likely block for a short period unless the **:count** option is set upon initialization. See _Size vs. Count_ below.
-* `.ready?` - A thread-safe flag that returns _true_ if the first document in the result set has been loaded.
-* `.complete?` - A thread-safe flag that returns _true_ if every record in the result set has been loaded.
+* `.ready?` - Returns _true_ if the first document in the result set has been loaded.
+* `.complete?` - Returns _true_ if every record in the result set has been loaded.
 * `.has?` - Takes an index and returns _true_ if the record at that position in the result set has been loaded.
 
 All of these methods are thread-safe and as consistent as MongoDB will allow them to be. The actual cursor is a hidden property owned by the database object, so that it can be explicitly closed if the query is garbage collected before completion.
@@ -134,9 +139,9 @@ Crunch provides two facilities to balance these constraints.  The first is the _
 
 If running a hundred documents ahead isn't enough (perhaps because your code's too fast) you can set a higher integer value for the **:lookahead** option on query creation.  A value of 2 would try to stay _two_ batches ahead of your data access, et cetera.  Low values will help limit memory usage when combined with no or weak retention (see below), as Crunch will only need to reserve memory for a few hundred records at a time.
 
-The **:lookahead** option also accepts two special non-integer values.  The _:none_ value disables advance retrieval; no batch will be requested until there is an access attempt on one of its documents.  This usually means more waiting, but may reduce network traffic in cases where you might not need the right at all.
+The **:lookahead** option also accepts two special non-integer values.  The _:none_ value disables advance retrieval; no batch will be requested until there is an access attempt on one of its documents.  This usually means more waiting, but may reduce network traffic if you aren't even sure you'll need the data.
 
-The _:all_ value is a 'greedy' lookahead -- it will request and store all documents from the result set as quickly as it can, regardless of when and whether any documents are looked at.  This minimizes synchronous waiting, but can also cause massive memory allocations if the result set is unreasonably large.  (For standard 1.8 or 1.9 Ruby interpreters this may also mean frequent garbage collection hang times.)
+The _:all_ value is a 'greedy' lookahead -- it will request and store all documents from the result set as quickly as it can, regardless of data access.  This minimizes synchronous waiting, but can also cause massive memory allocations and freeze-ups if the result set is unreasonably large.
 
 #### Retention ####
 
@@ -152,10 +157,10 @@ The details of this retention mechanism are complex, involving weak references a
 
 In summary, some rules of thumb:
 
-* If your expected number of documents from a query is low to moderate (less than 10,000), don't worry about the **:retain** option.
+* If your expected number of documents from a query is low to moderate (less than 10,000), don't worry about the retention system.  Things will Just Work.
 * If you expect a large number of documents but will only need to look at each one once, use **:retain => :none**.
-* If you expect a large number of documents and will need to access them individually an indefinite number of times, either use **:retain => :all** or maintain your own references in your own variables.
-* If you expect a large number of documents and will need to iterate through them in order multiple times, either use **:retail => :all** or copy the query.
+* If you expect a large number of documents and will need to access them randomly and repeatedly, either use **:retain => :all** or assign them to your own variables.
+* If you expect a large number of documents and will need to iterate through them in order multiple times, either use **:retain => :all** or clone the query and run it again.  (Querying again is a better idea if you can handle the data possibly changing.)
 
 #### Size vs. Count ####
 
@@ -170,17 +175,17 @@ Queries have an `.update` method that takes a hash of atomic change operators:
 
     my_query.update set: {'foo' => 'bar', 'zoo' => 'zar'}, inc: {'looky' => 1}, addToSet: {'dwarves' => 'Grumpy'}
 
-This is really just a shortcut for convenience; it passes things along to its Collection object's `.update` method along with its own query conditions.
+This is really just a shortcut for convenience; it passes things along to its Collection object's `.update` method along with its own query conditions.  It takes the same options and returns the same way.
 
-There's also a `.delete` method that works similarly, instructing the Collection to remove any records matching the query's conditions.
+Likewise, there's a `.delete` method that shortcuts to the Collection, instructing it to remove any records matching the query's conditions.
 
-Remember that the Query itself is _immutable_ -- you won't see any changes reflected in its own data, but rather in subsequent queries.  
+Remember that the Query itself is _immutable_ -- you won't see any changes reflected in its own data, but rather in subsequent queries. Don't get tripped up by this.
 
 
 ### Options ###
-Because Queries run immediately, all options must be passed at initialization.  Only the **database** and **collection** parameters are required; a query without any other options simply returns the entire collection. 
+Because Queries are immutable, all options must be passed at initialization.  Only the **collection** parameter is required; a query without a hash simply returns the entire collection. 
 
-The options hash may contain both search conditions and defined options, mingled interchangeably.  Any keys that the Query class doesn't know about are passed to MongoDB as search conditions.  Options are always symbols.  To avoid confusion and name collisions, we _strongly_ suggest using strings for search keys, or else use the explicit **:conditions** option:  
+The options hash may contain both search conditions and defined options, mingled interchangeably.  Known options are removed first, and then any key that the Query class doesn't recognize as an option is passed to MongoDB as a search condition.  To avoid confusion and name collisions, we _strongly_ suggest using strings for search conditions (all options are symbols), or else use the explicit **:conditions** option to separate them:  
 
     highways = db.collection 'roads'
     highways.query 'limit' => 70, :limit => 5           # Returns the first 5 roads with a speed limit of 70
@@ -190,7 +195,7 @@ The options hash may contain both search conditions and defined options, mingled
 The following options are defined by the MongoDB server and passed along in the query message:
 
 * **:conditions** _(Hash)_ Explicit search conditions. See above.
-* **:fields** _(Array)_ Only return these document fields.  (*'_id'* is always included.)
+* **:fields** _(Array)_ Only return these document fields.  (*'\_id'* is always included.)
 * **:limit** _(Integer)_ Return at most _N_ matching documents.
 * **:skip** _(Integer)_ Start at the _N+1_th matching document.
 * **:sort** _(String, Array or Hash)_ See below.
@@ -208,31 +213,33 @@ The following options are defined by Crunch and influence when and how the query
 
 * **:run** _(Boolean)_ If false, do _not_ execute the query until the `run` method is called or data is read. Useful if you're setting up a base query for later execution or modification.
 * **:batch** _(Integer)_ Return _N_ documents from the cursor per request. Defaults to 100. 
-* **:lookahead** _(Integer, :none, or :all)_ Load data _N_ requests ahead of data access. Defaults to 1.
-* **:retain** _(Integer, :none, :all)_ Whether to keep document references after access. Defaults to 10,000.
-* **:count** _(Boolean)_ Request the document count for this query. Saves time if the `.count` method is called later. Defaults to false.
+* **:lookahead** _(Integer, :none, or :all)_ Load data _N_ batches ahead of data access. Defaults to 1.
+* **:retain** _(Integer, :none, or :all)_ Whether to keep document references after access. Defaults to 10,000.
+* **:count** _(Boolean)_ Retrieve the document count for this query in a separate request. Saves time if the `.count` method is called later. Defaults to false.
 
 #### Blocks and Block Options ####
-Hard-core asynchronists can skip in-line interaction with the Query entirely and specify callbacks to operate when the application isn't looking.  If a block is passed to `Query.new` or any of the various `.query` methods, it is automatically called by EventMachine on each document in the result set in turn:
+Hard-core asynchronists can skip in-line interaction with the Query entirely and specify callbacks to operate on the data in the EM loop.  If a block is passed to `Query.new` or any of the various `.query` methods, it is automatically called by EventMachine on each document in the result set in turn:
 
     cartoon_characters.query 'type' => 'Care Bear' do |bear|
         puts bear['name'] + ': ' + bear['cheesy_symbol']
     end
 
-Passing a block implicitly sets **:retain** to _:none_ for memory conservation, but you can override this if you want to hold onto the data for your own purposes.
+Passing a block implicitly sets **:retain** to _:none_ for memory conservation, but you can override this if you want to hold onto the data for your own purposes. 
 
 For more refinement, you can pass procs or lambdas to the following query options:
 
-* **:each** _(Proc)_ Same as the method block parameter above.  Useful for clarity if you're going to pass more than one proc. Takes a document from the result set as a parameter.
-* **:on\_ready** _(Proc)_ Called once the first document is loaded into memory. Takes the query as a parameter. Useful if you want to avoid synchronous delays while waiting for the server to process.
-* **:on\_retrieval** _(Proc)_ Called after each cursor return.  Takes a counter and the retrieved batch (subset of documents) as parameters. Useful if you want to display progress or avoid synchronous delays from the network.
-* **:on\_completion** _(Proc)_ Called once the last document is loaded into memory. Implicitly sets **:lookahead** to _:all_ unless overridden. Takes the query as a parameter. Useful if you want to do something to the entire enumerable _other than_ stepping through it. (Don't use for huge result sets!)
-* **:on\_error** _(Proc)_ Called on query failure. Takes the query and an exception object as parameters.
+* **:on\_each** _(Proc)_ Identical to the method block behavior described above.  Useful for clarity if you're also going to use any of the options below.
+* **:on\_error** _(Proc)_ Called on query failure. Passes the query and an exception object as parameters to the proc.
+* **:on\_ready** _(Proc)_ Called once the first document is loaded into memory. Passes the query as a parameter. Useful if you want to avoid synchronous delays while waiting for the server to process.
+* **:on\_completion** _(Proc)_ Called once the last document is loaded into memory. Implicitly sets **:lookahead** to _:all_ unless overridden. Passes the query as a parameter. Useful if you want to do something to the entire enumerable _other than_ stepping through it. (Don't use for huge result sets!)
+* **:on\_retrieval** _(Proc)_ Called after each cursor return.  Passes the query and the index of the first document in the relevant batch as parameters. Useful if you want to display progress or avoid synchronous delays from the network.
 
 
 Collection
 ----------
-The **Crunch::Collection** class is most important as a hook to hang queries from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can also be treated as a Query, and the documents within it can be iterated or accessed.
+The **Crunch::Collection** class is the hook that data itself hangs from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can be treated as a Query, and the documents within it can be iterated or accessed.
+
+**NOTE:** The following Collection methods are described in the **Crunch::Document** section, because they work with and return single Document objects: `.get`, `.modify`, `.upsert`.
 
 ### Creation ###
 Like Database objects, Collection objects use the _singleton_ pattern.  A particular named collection in a particular database will have _one_ object representing it.  The explicit way to create this object is with the Database's `.collection` method:
@@ -251,11 +258,11 @@ It's a very common use case to access or iterate through all the documents in a 
       
 Unlike ordinary queries, the implicit query's **:run** value defaults to _false_.  This means that the query won't actually be executed until the first time it's needed.  This is sensible, since it's very probable you won't use it at all, but you can override it to _true_ if you want data to be available shortly after the Collection is created.
 
-You can also _refresh_ the implicit query to bring the Collection's contents up to date.  This works in practice by replacing the old query with a new one.  You can trigger it manually with the `.refresh!` method, or you can set the **:refresh** option or `.refresh` attribute to a positive integer value.  This produces an EventMachine periodic timer that replaces the implicit query with a new one every _N_ seconds.  If the **:run** option is true, the query will also execute immediately and start loading documents.  This could result in a lot of wasted network, CPU, and memory load if you don't actually need the new data.
+You can also _refresh_ the implicit query to bring the Collection's contents up to date.  This works in practice by replacing the old query with a new one.  You can trigger it manually with the `.refresh!` method, or you can set the **:refresh** option or `.refresh` attribute to a positive integer value.  This produces an EventMachine periodic timer that replaces the implicit query with a new one every _N_ seconds.  (It's probably a bad idea to override the **:run** option to _true_ for a periodic timer.)
 
-If you decide to use periodic refreshes, please keep the consequences in mind.  It means documents and their order _can and will_ change in the background; so calling, say, `collection[5]` could return a different document between one call and the next.  Don't try to manually iterate through the records, because the set of things you're looking at could change at any time.  Enumerators and code blocks are safe, however; they'll continue to refer to their original Query object and its contents even after the Collection has dropped it from scope.
+If you decide to use periodic refreshes, please keep the consequences in mind.  It means documents and their order _can and will_ change in the background; so calling, say, `collection[5]` could return a different document between one call and the next.  Don't try to manually iterate through the records using their indexes, because the set of things you're looking at could change at any time.  Enumerators and code blocks are safe, however; they'll continue to refer to their original Query object and its contents even after the Collection has dropped it from scope.
 
-Confused?  Don't try to overthink it.  If all this singleton and delegate stuff seems too gonzo, you can forget the whole idea of implicit queries and get a standalone Query object representing the entire collection:
+Confused?  Don't overthink it.  If all this implicit delegate stuff seems too gonzo, you can forget the whole idea and get a standalone Query object representing the entire collection:
 
     collection.query
     
@@ -265,7 +272,7 @@ Inserting a single document is very simple:
 
     collection.insert 'name' => "G'Kar", 'species' => 'Narn', 'bald' => true, 'paraphrases' => 'Socrates'
     
-You can pass a Fieldset object or a hash (which will be implicitly converted to a Fieldset anyway).  If you don't specify an *'\_id'* field, Crunch will create one before sending the document to the server.  The *'\_id'* is also the return value of the `.insert` method, so that you can retrieve the document if desired.
+You can pass a Fieldset object or a hash (which will be implicitly converted to a Fieldset).  If you don't specify an *'\_id'* field, Crunch will create one before sending the document to the server.  The *'\_id'* is also the return value of the `.insert` method so that you can retrieve the document or link to it as needed.
 
 You can also insert multiple documents at once:
 
@@ -279,58 +286,111 @@ The `.insert` method respects the value of the `.safe` attribute at the module, 
 
     collection.insert 'name' => 'Morden', safe: true      # (Irony.)
 
-If safety is _false_ the method will return immediately, leaving EventMachine to handle the actual _'INSERT'_ message in the background.  If safety is _true_ the method becomes synchronous, and blocks until the insert is sent and a _getLastError_ request has been answered.  If there are no errors, the *'\_id'* value(s) will eventually be returned as described above.  If an error occurs, a **Crunch::IndexError** exception will be raised with the details.
+If safety is _false_ (the default) the method will return immediately, leaving EventMachine to handle the actual _'INSERT'_ message in the background.  If safety is _true_ the method becomes synchronous, and blocks until the insert is sent and a _getLastError_ request has been answered.  If there are no errors, the *'\_id'* value(s) will eventually be returned as described above.  If an error occurs, a **Crunch::IndexError** exception will be raised with the details.
 
+### Deleting ###
 
+Unsurprisingly, deleting looks a lot like inserting:
+
+    collection.delete 'role' => 'redshirt', multi: false, safe: true
     
+The main hash (i.e., everything except options) represents the search conditions specifying which documents to delete. If no conditions are given, every document in the collection will be deleted. (Caveat applicator!)
+
+The return value is not meaningful in 'unsafe' mode. If called with the **:safe** option it will return the number of documents deleted, or a **Crunch::DeleteError** exception if an error occurs.   
     
+Options:
+
+* **:multi** _(Boolean)_ - if _true_, will delete every document matching the conditions. If _false_, will only delete the first document found. Defaults to _true_. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)
+* **:safe** _(Boolean)_ - see above.
 
 
+### Updating ###
 
+Updating documents looks like querying on them for the most part:
+
+    collection.update 'species' => 'Vorlon', set: {'religious_iconography' => true}, multi: true, upsert: false
+
+The main hash (i.e., everything except options) represents the search conditions specifying which documents to update. If no conditions are given, the entire collection will be updated. The update values are passed as options. 
+
+The return value is not meaningful in 'unsafe' mode. If called with the **:safe** option it will return the number of documents updated, or a **Crunch::UpdateError** exception if an error occurs.
     
-    
+#### Control Options ####
 
-    
+The following options are simple flags controlling MongoDB's behavior:
 
+* **:multi** _(Boolean)_ - if _true_, will update every document matching the **:query** conditions.  If _false_, will only update the first document found. Defaults to _true_. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)
+* **:upsert** _(Boolean)_ - if _true_, will create a new document matching the **:query** conditions if no matching documents are found. Defaults to _false_. (It's probably more convenient to use the `.upsert` method if you only want to work on a single document.)
+* **:safe** _(Boolean)_ - see above.
 
+#### Update Options ####
+
+For more information on all of the following, see the [official MongoDB documentation](http://www.mongodb.org/display/DOCS/Updating):
+
+* **:document** _(Hash, Fieldset)_ - replace the entirety of a single matching document with the given fields. Implicitly sets **:multi** to _false_ (and will throw a **Crunch::UpdateError** if you try to override it). Rarely useful outside the traditional `Document#save` context.
+* **:set** _(Hash, Fieldset)_ - sets the given fields to the given values.
+* **:unset** _(String, Symbol, Array)_ - takes a field name or a list of names and removes each one.
+* **:inc** _(String, Symbol, Array, Hash, Fieldset)_ - if given a hash or fieldset, increments each key by each value. If given a field name or list of names, increments by an implied value of 1.
+* **:push** _(Hash, Fieldset)_ - appends the given values to the arrays named by the given keys.
+* **:pushAll** _(Hash, Fieldset)_ - like **:push**, but with arrays of values. See the Mongo documentation.
+* **:addToSet** _(Hash, Fieldset)_ - appends the given values to the given arrays _if_ they don't already exist.
+* **:addAllToSet** _(Hash, Fieldset)_ - like **:addToSet**, but with arrays of values. (_Custom:_ does an implied `$each`.)
+* **:pop** _(String, Symbol, Array, Hash)_ - given an array name or a list of arrays, removes the last element from each. Given a hash, removes the last element for values of _1_ or _:last_ or the first element for values of _-1_ or _:first_. See the Mongo documentation if you need to mix 'last' and 'first' behavior, or use the next two bullet points. 
+* **:pop_last** _(String, Symbol, Array)_ - removes the last element from each array name or list of arrays. (_Custom:_ syntactic sugar for **:pop**.)
+* **:pop_first** _(String, Symbol, Array)_ - removes the first element from each array name or list of arrays. (_Custom:_ syntactic sugar for **:pop**.)
+* **:pull** _(Hash, Fieldset)_ - removes the given values from the arrays named by the given keys.
+* **:pullAll** _(Hash, Fieldset)_ - like **:pull**, but with arrays of values. See the Mongo documentation.
+* **:rename** _(Hash, Fieldset)_ - changes the given field names to the given values.
+* **:bit** _(Hash, Fieldset)_ - performs the bitwise updates from the values on the given fields. See the Mongo documentation.
 
 
 Document
 --------
-The **Crunch::Document** class allows MongoDB documents to create, read, update, or delete themselves on an individual basis.  It's duck-typed to a Hash, except that all keys are converted to strings on assignment and any values which cannot be serialized to BSON will raise an exception.
+The **Crunch::Document** class is the object you get when you iterate through a Query or Collection. It allows MongoDB documents to read, update, or delete themselves on an individual basis.  It's a subclass of **Crunch::Fieldset** with additional restrictions:
+
+* It _must_ be created from a BSON binary string or byte buffer.
+* It _must_ have a Collection attribute.
+* It _must_ have an _'\_id'_ key. (Also accessible by the `.id` attribute.)
+
+The assumption is that a Document represents a real entity _already existing_ in the Mongo database. An unsaved document is not a Document. You shouldn't create these from scratch; the `.new` method is not part of the public API.
 
 ### Creation ###
 
-You can create an unsaved Document from scratch by passing it a Database and a collection name or Collection object:
+The roundabout way to make a new document is to run the `.insert` method of the appropriate Collection and then call `.get` to retrieve the returned document *'\_id'*:
 
-    my_document = Document.new db, 'my_collection'
+    id = dwarfs.insert 'name' => 'Sleepy'
+    doc = dwarfs.get id
 
-You can also pass a hash of initial data. The new Document will have a generated ObjectId unless you pass it an `:id` parameter. Call `.insert` or `.save` at any time to bring it into the database.
-
-You can insert documents as a hash into a Database or Collection object with the `.insert` method: 
-
-    db.insert 'my_collection', 'foo' => :bar, 'abc' => [1, 2, 3]
-    my_collection.insert 'foo' => :bar, 'abc' => [1, 2, 3]
+But hark!  There's a `.post` method on the collection that will essentially do this for you:
     
-Both will immediately return a Crunch::Document object that can be used for subsequent updates.  Inserts are synchronous by default, in that **getLastError** is immediately called to confirm the operation and the method sleeps until it returns. If you wish to make an asynchronous update, use the bang form: `my_collection.insert! 'foo' => :bar`. (This is reasonably safe and recommended in most circumstances, even if you prefer synchronous reads.)
-
+    doc = dwarfs.post 'name' => 'Sleepy'
 
 ### Retrieval ###
 
-Documents can be retrieved from Databases, Collections or Groups with the `.document` method. You can pass the document's ID or a hash of query options:
-
-    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectId from a string or number
-    db.document 'my_collection', id
-    my_collection.document id
-    my_collection.document name: /Joe/, age: {'$lt' => 35}  # Returns the first document matching the query parameters
-    my_group.document age: 35  # Inherits the query parameters of the Group
-    my_group.document name: /Joe/, fields: [:name, :age]  # Limits fields returned
+Documents are retrieved from Collections using the `.get` method.  You can pass the document's ID or a hash of query options:
     
-Queries are sent to the MongoDB server as-is, with only basic BSON serialization performed.  You can include any of the advanced query operators, e.g. **$gte**, **$in**, **$not**, etc.
-
+    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectId from a string or number
+    doc = my_collection.get id                  # Retrieves the document with that ID
+    doc = my_collection.get 'name' => /Joe/, 'age' => {lt: 35}  # Returns the first matching document
+    doc = my_collection.get 'name' => /Joe/, fields: ['name', 'age']  # ...also limits fields returned
+    
+Behind the scenes, the `.get` method is simply creating a **Crunch::Query** and then returning the single record that comes back.  It accepts the **:conditions**, **:fields**, **:skip** and **:sort** options as described in Query.  It does _not_ accept the **:limit** option; the method has an implicit limit of _-1_. (The negative number prevents the Mongo server from creating a cursor.)
+   
 #### Asynchronous Retrieval ####
 
-Single-document retrievals are synchronous by default: the `.document` method won't return until the data has been returned from MongoDB and deserialized.  Failures will return an exception from the method. You can make the retrieval asynchronous in a few ways:
+Single-document retrievals are synchronous by default: the `.get` method will block until the data has been returned from MongoDB.  Failures will return an exception from the method.  There are two ways to work with single documents without blocking.
+
+The first method is to pass a block:
+
+    status = my_collection.get 'first_name' => /Joe/ {|doc| do_something}
+
+The return value is a proc that will return _nil_ when called until it 
+
+
+
+
+
+
+
 
 1. You can call the bang form of the method: `my_collection.document! id`. You can optionally pass a block as well. The Document object will return immediately, and the block (if given) will be attached as a success callback. You can check the `.ready?` attribute at any time to determine whether the data is available yet.  Attempts to read the data before it's ready will throw an exception.
 2. You can globally set `Crunch.synchronous = false` on application initialization.  Document retrieval will then act like its bang form described above.
