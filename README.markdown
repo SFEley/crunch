@@ -239,7 +239,7 @@ Collection
 ----------
 The **Crunch::Collection** class is the hook that data itself hangs from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can be treated as a Query, and the documents within it can be iterated or accessed.
 
-**NOTE:** The following Collection methods are described in the **Crunch::Document** section, because they work with and return single Document objects: `.get`, `.modify`, `.upsert`.
+**NOTE:** Not every Collection instance method is described in this section. The `.get` and `.create` methods are described in the **Crunch::Document** section because they return single Document objects. And the `.prior`, `.post`, `.push` and `.pop` methods are described in the **Finding and Modifying** section because they require some explanation. 
 
 ### Creation ###
 Like Database objects, Collection objects use the _singleton_ pattern.  A particular named collection in a particular database will have _one_ object representing it.  The explicit way to create this object is with the Database's `.collection` method:
@@ -270,7 +270,7 @@ Confused?  Don't overthink it.  If all this implicit delegate stuff seems too go
 
 Inserting a single document is very simple:
 
-    collection.insert 'name' => "G'Kar", 'species' => 'Narn', 'bald' => true, 'paraphrases' => 'Socrates'
+    collection.insert 'name' => "G'Kar", 'species' => 'Narn', 'hair' => false, 'paraphrases' => 'Socrates'
     
 You can pass a Fieldset object or a hash (which will be implicitly converted to a Fieldset).  If you don't specify an *'\_id'* field, Crunch will create one before sending the document to the server.  The *'\_id'* is also the return value of the `.insert` method so that you can retrieve the document or link to it as needed.
 
@@ -319,7 +319,7 @@ The return value is not meaningful in 'unsafe' mode. If called with the **:safe*
 The following options are simple flags controlling MongoDB's behavior:
 
 * **:multi** _(Boolean)_ - if _true_, will update every document matching the **:query** conditions.  If _false_, will only update the first document found. Defaults to _true_. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)
-* **:upsert** _(Boolean)_ - if _true_, will create a new document matching the **:query** conditions if no matching documents are found. Defaults to _false_. (It's probably more convenient to use the `.upsert` method if you only want to work on a single document.)
+* **:upsert** _(Boolean)_ - if _true_, will create a new document matching the **:query** conditions if no matching documents are found. Defaults to _false_. (Also see the `.push` method, which will return the document itself.)
 * **:safe** _(Boolean)_ - see above.
 
 #### Update Options ####
@@ -353,40 +353,80 @@ The **Crunch::Document** class is the object you get when you iterate through a 
 
 The assumption is that a Document represents a real entity _already existing_ in the Mongo database. An unsaved document is not a Document. You shouldn't create these from scratch; the `.new` method is not part of the public API.
 
-### Creation ###
-
-The roundabout way to make a new document is to run the `.insert` method of the appropriate Collection and then call `.get` to retrieve the returned document *'\_id'*:
-
-    id = dwarfs.insert 'name' => 'Sleepy'
-    doc = dwarfs.get id
-
-But hark!  There's a `.post` method on the collection that will essentially do this for you:
-    
-    doc = dwarfs.post 'name' => 'Sleepy'
-
 ### Retrieval ###
 
 Documents are retrieved from Collections using the `.get` method.  You can pass the document's ID or a hash of query options:
     
-    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectId from a string or number
+    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectId from a string
     doc = my_collection.get id                  # Retrieves the document with that ID
     doc = my_collection.get 'name' => /Joe/, 'age' => {lt: 35}  # Returns the first matching document
     doc = my_collection.get 'name' => /Joe/, fields: ['name', 'age']  # ...also limits fields returned
     
-Behind the scenes, the `.get` method is simply creating a **Crunch::Query** and then returning the single record that comes back.  It accepts the **:conditions**, **:fields**, **:skip** and **:sort** options as described in Query.  It does _not_ accept the **:limit** option; the method has an implicit limit of _-1_. (The negative number prevents the Mongo server from creating a cursor.)
+Behind the scenes, the `.get` method is simply creating a **Crunch::Query** and then returning the single record that comes back.  It accepts the **:conditions**, **:fields**, **:skip** and **:sort** options as described in Query.  It does _not_ accept the **:limit** option; the query has an implicit limit of _-1_ and you can't change it. (The negative number prevents the Mongo server from creating a cursor.)
    
 #### Asynchronous Retrieval ####
 
-Single-document retrievals are synchronous by default: the `.get` method will block until the data has been returned from MongoDB.  Failures will return an exception from the method.  There are two ways to work with single documents without blocking.
-
-The first method is to pass a block:
+Single-document retrievals are synchronous by default: the `.get` method will block until the data has been returned from MongoDB.  Failures will return an exception from the method.  To work with a single document without blocking, you can pass a block to be executed on the document once it's retrieved:
 
     status = my_collection.get 'first_name' => /Joe/ {|doc| do_something}
 
-The return value is a proc that will return _nil_ when called until it 
+The return value is a proc that will return _false_ when called if the code has not yet been executed, _true_ if it has been, and raise any exceptions that arise during execution.
+
+### Creation ###
+
+The roundabout way to make a new document is to run the `.insert` method of the appropriate Collection and then call `.get` to retrieve the returned document *'\_id'*:
+
+    id = dwarfs.insert 'name' => 'Sleepy'   #=> BSON::ObjectId('4d5f25d5a2790e024b000001')
+    doc = dwarfs.get id     #=> <Document> {'_id' => BSON::ObjectId('4d5f25d5a2790e024b000001'), 'name' => 'Sleepy'}
+
+But hark!  There's a `.create` method on the collection that will do it in one (synchronous) step:
+    
+    doc = dwarfs.create 'name' => 'Sleepy'    #=> <Document> {'_id' => BSON::ObjectId('4d5f26d2a2790e024b000002'), 'name' => 'Sleepy'}
+
+Technically, the `.create` method works using a **findAndModify** upsert with a newly generated ID rather than a separate insert and retrieval. But it works the same. Don't worry about it.
+
+### Updating ###
+
+Documents are immutable, so you can't update the object itself. But you _can_ send changes to the database for future generations:
+
+    doc.update set: {'phasers' => 'stun'}, inc: 'cliches'
+    
+The method is just a shortcut to the `Collection#update` method, so all of the same update options apply.  (Including **:document**, if you want to replace the entire contents of the document.)  The **:multi** and **:upsert** options are not valid for obvious reasons. 
+
+Like the Collection method, `.update` is asynchronous and does not return a meaningful value unless you set the **:safe** option to _true._
+
+### Deleting ### 
+
+You can tell the database to get rid of the document with a simple command (which is, again, a shortcut to the Collection method):
+
+    doc.delete
+    
+There are no options except for **:safe**.  Like the Collection method, `.delete` is asynchronous and does not return a meaningful value unless you set the **:safe** option to _true._
+
+Will `.delete` cause any changes to the object you're looking at?  No.  Repeat after me: ***Documents are immutable.***  You can turn the object into a ghost, but it will look just as solid.
 
 
+Finding and Modifying
+---------------------
+If you've read the MongoDB doc site (and you should), you've likely been flummoxed by the **findAndModify** command.  It's the database's most powerful and most confusing feature: it sweeps every aspect of CRUD into one übermethod, like a sort of addled Voltron. Here's my nutshell attempt to make sense of it:
 
+1. You can give it some query conditions. The _first_ matching document in the collection, if any, is used for Step 2. (You can also create a new document if nothing matches.)
+2. You can change the document's contents, or delete it entirely.
+3. You'll receive the document, or a subset of its fields, _before or after_ its contents were changed. You get to decide; you can't have both.
+
+It's the _before or after_ part that causes brains to melt. By default it's _before_ -- which is useful if, say, you're popping something off of an array field. But if you're adding new data or incrementing, you probably want the _after_ version that includes your changes. In this author's opinion, putting both in one method was a mistake. It doesn't matter which one's the default; a Principle of Least Surprise violation is inevitable.
+
+Crunch resolves all this chaos by breaking **findAndModify**'s use cases into a few different methods. The `.create` method was already described in the **Crunch::Document** section above. (It's really just a special case of `.push`.) The rest are described below. Every one of them is an instance method of **Crunch::Collection**, and every one of them returns a Document.
+
+### .push ###
+
+This is the 'upsert' method.  
+
+### .pull ###
+
+### .prior ###
+
+### .post ###
 
 
 

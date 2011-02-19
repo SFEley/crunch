@@ -1,4 +1,4 @@
-require 'crunch/exceptions'
+# require 'crunch/exceptions'
 require 'eventmachine'
 require 'bson'
 
