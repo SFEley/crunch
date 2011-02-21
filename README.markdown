@@ -56,13 +56,52 @@ In most cases there's no need to create Fieldsets manually -- they're automatica
 
 Database
 --------
-The **Crunch::Database** class abstracts all communication with the server. There is one singleton Database object per Mongo database, and each maintains one or more server connections. Because it's a singleton, you invoke the instance with `.connect` rather than `.new`:
+The **Crunch::Database** class abstracts the communication with the server. There is one singleton Database object per Mongo database, and each maintains one or more server connections. Because it's a singleton, you invoke the instance with `.connect` rather than `.new`:
 
-    db = Crunch::Database.connect 'my_database', host: 'example.org', port: '71072'
+    db = Crunch::Database.connect 'babylon_5', host: 'example.org', user: 'zathras', password: 'n0tthe1'
     
-(The _host_ and _port_ default to localhost and 27017, of course.)
+If you call the `.connect` method again with the same database name, host, and port, you'll get the same Database object back.  If you change any of these parameters you'll receive a different Database object.
 
-Groups and Documents make queries or updates by passing messages to their Database.  The Database then forwards the message to a subclass of EventMachine::Connection, which sends the binary data to the MongoDB server.  In the case of queries, a reference to the originating Group or Document is also passed so that it can be told to update itself when the response comes back.
+### Connection Pool ###
+
+Each Database object maintains a private pool of connections to the server, and will scale them up or down based on the running size of the request queue.  These "connections" are just network constructs for dealing with EventMachine; don't confuse them with the top-level Connection class found in other drivers.  There's no public API to an individual connection.  However, you _can_ tune the Database's behavior in terms of pool size and rate of change.
+
+The basic flow is a "grow quickly, shrink slowly" algorithm which works as follows:
+
+1. The Database object is created with a minimum number of connections. (The default is 1.)
+2. As your application asks for things from MongoDB, the requests are added to a queue managed by EventMachine.
+3. Idle connections poll the request queue as often as the EventMachine loop lets them.  (Roughly a gazillion times a second.)  If there's a request waiting, a connection will take it and dispatch it immediately.
+5. A "heartbeat" timer checks the size of the request queue periodically (the default is every second) to determine if there are too few or too many connections:
+    * If the size of the queue is larger than the current number of connections, a new connection is added, up to the maximum allowed (the default is 10).
+    * If the size of the queue has been smaller than the current connection count for _count**2_ heartbeats (i.e., the square of the number of connections) it closes a single connection and resets the counter.  This doesn't happen, of course, if the connection count is already at the minimum allowed.
+
+The actual load will depend on your request pattern. Inserts, updates and deletes expect no reply (unless the **:safe** option is true) and the connection will immediately go back to the queue. Queries and 'safe mode' writes will occupy connections longer as they wait for a server response. A "write only" application could sustain a very high rate of small updates with only a single connection, whereas an application that's heavy on queries (or uses safe mode for all writes) would be more likely to grow the connection pool.  
+
+You can check the size of the request queue with the `.pending_count` method, and the size of the connection pool with the `.connection_count` method.  If you find that the connection count is staying at maximum but your CPU and network bandwidth aren't close to 100% yet, you can safely adjust the `.max_connections` attribute at run time to raise the ceiling.
+
+Note that the asynchronous nature of Crunch's connection pool necessarily breaks serialization. I.e., there's no guarantee that requests you send will be received by the server and processed in order. They'll be _queued_ in order, but if you have, say, an update containing 2 MB of data followed by one that simply increments an integer, it's quite likely that the second update will happen first on the server.  If this is a problem, your recourse is to set **:max\_connections** to 1.  (Or fix your business logic. Or use a database that supports transactions.)
+
+### Options ###
+
+There are two types of options to the `connect` method: _server_ options and _tuning_ options.  Server options can only be set using the `.connect` method, but can be read as attributes (except for **:password**) at any time.  Tuning options are read/write attributes of the object as well.
+
+#### Server Options ####
+
+These options are used for finding and authenticating to the database.  The _name_ of the database is of course a server attribute as well; however, as the only required parameter, it isn't part of the options hash.
+
+* **:host** _(String)_ The IP address or DNS name to connect to.  Defaults to _localhost_.
+* **:port** _(String)_ The port for all connections.  Defaults to _27017_ per Mongo canon.
+
+Note that authentication and connecting to replica sets or pairs are not supported. _Yet._ It'll come.
+
+#### Tuning Options ####
+
+You can set the pool size and growth/reduction rate with the following options:
+ 
+* **:min\_connections** _(Integer)_ Always maintain at least this many connections. Defaults to _1_.
+* **:max\_connections** _(Integer)_ Don't grow the pool past this size. Defaults to _10_.
+* **:heartbeat** _(Integer, Float)_ Interval in seconds at which to perform connection maintenance. Defaults to _1_.
+
 
 Query
 -----
@@ -416,138 +455,54 @@ If you've read the MongoDB doc site (and you should), you've likely been flummox
 
 It's the _before or after_ part that causes brains to melt. By default it's _before_ -- which is useful if, say, you're popping something off of an array field. But if you're adding new data or incrementing, you probably want the _after_ version that includes your changes. In this author's opinion, putting both in one method was a mistake. It doesn't matter which one's the default; a Principle of Least Surprise violation is inevitable.
 
-Crunch resolves all this chaos by breaking **findAndModify**'s use cases into a few different methods. The `.create` method was already described in the **Crunch::Document** section above. (It's really just a special case of `.push`.) The rest are described below. Every one of them is an instance method of **Crunch::Collection**, and every one of them returns a Document.
+Crunch resolves all this chaos by breaking **findAndModify**'s use cases into a few different methods. The `.create` method was already described in the **Crunch::Document** section above. (It's really just a special case of `.push`.) The rest are described below. They all share the following characteristics:
+
+1. They're instance methods of **Crunch::Collection**.  
+2. They're semantically similar to the `Collection#update` method. They take the same query conditions and update options. (But not the **:multi**, **:upsert** or **:safe** options.)
+3. They're synchronous and return a Document if you don't give them a block.
+4. If you _do_ give them a block, they're asynchronous and pass the document to the block. The return value is a proc that will return _false_ when called if the code has not yet been executed, _true_ if it has been, and raise any exceptions that arise during execution.
 
 ### .push ###
 
-This is the 'upsert' method.  
+This is the "upsert" variant of **findAndModify**:
 
-### .pull ###
+    collection.push 'name' => 'John Sheridan', push: {'places' => "Z'ha'Dum"}   #=> <Document> {...}
+
+The `.push` method looks for the first document in the collection matching the query conditions, and if found, applies the update options to it.  If a document is _not_ found, it creates one based on the query conditions and then applies the update options.  Either way, the document is returned as it exists _after_ the update.  (Insertions wouldn't make much sense otherwise.)  
+
+Do not confuse the method name `.push` with the **:push** atomic update operation, which appends a value to an array field.  We've named this method `.push` because upserts can be useful in set- or stack-like operations, and because it goes well with the next method.      
+
+### .pop ###
+
+This is the "remove" variant of **findAndModify**:
+
+    collection.pop 'role' => 'redshirt'     #=> <Document> {'name' => 'Security Guard #5', role => 'redshirt', ...}
+    
+The `.pop` method looks for the first document in the collection matching the query conditions, tells MongoDB to delete it, and returns the document that was just deleted. It returns _nil_ if no document was found. The _before_ mode of **findAndModify** is implied for obvious reasons.
+
+Do not confuse the method name `.pop` with the **:pop** atomic update operation, which removes an element from an array field (but doesn't return anything by itself).  We've named this method `.pop` because of its obvious usefulness in stack- or queue-like operations.  Without something like this **findAndModify** variant, it'd be very difficult to use a MongoDB collection reliably as a work queue.
 
 ### .prior ###
 
+This is the "return _before_ update" variant of **findAndModify**:
+
+    collection.prior 'name' => 'John Sheridan', 'places' => "Z'ha'Dum", 'deaths' => 0, inc: 'deaths'
+        #=> <Document> {'name' => 'John Sheridan', 'places' => ["Babylon 5", "Z'ha'Dum", ...], 'deaths' => 0, ...}
+
+The `.prior` method looks for the first document in the collection matching the query conditions, retrieves it, and then applies the update options to it. The method returns _nil_ if no match was found; otherwise, the document returned will contain the contents from _before_ the update. This is often essential when using atomic updates that destroy data like **:pop** or **:pull** -- at least if you need to know what was removed.  
+
+Do not confuse the method name `.prior` with Richard Pryor.
+
 ### .post ###
 
+This is the "return _after_ update" variant of **findAndModify**:
 
+    collection.post 'name' => 'John Sheridan', 'places' => "Z'ha'Dum", 'deaths' => 0, inc: 'deaths'
+        #=> <Document> {'name' => 'John Sheridan', 'places' => ["Babylon 5", "Z'ha'Dum", ...], 'deaths' => 1, ...}
 
+The `.post` method looks for the first document in the collection matching the query conditions, applies the update options to it, and then retrieves it. The method returns _nil_ if no match was found; otherwise, the document returned will contain the contents from _after_ the update. This can be very useful for counter-type operations, or other cases where a transformation is occurring on existing data.  
 
-
-1. You can call the bang form of the method: `my_collection.document! id`. You can optionally pass a block as well. The Document object will return immediately, and the block (if given) will be attached as a success callback. You can check the `.ready?` attribute at any time to determine whether the data is available yet.  Attempts to read the data before it's ready will throw an exception.
-2. You can globally set `Crunch.synchronous = false` on application initialization.  Document retrieval will then act like its bang form described above.
-3. You can pass the `:synchronous => false` option to the `.document` method.  It will then act like its bang form.
-
-The Document method that's returned includes the **EventMachine::Deferrable** module, and therefore can have callbacks attached to it at any time.  
-
-#### Reloading Documents ####
-
-In a highly concurrent Mongo environment, there is no assurance that a Document won't go stale while you're working with it.  You can retrieve the data from MongoDB again at any time by using the `.refresh` (synchronous) or `.refresh!` (asynchronous) methods. On completion, the refresh will overwrite the data in the Document on which the method is called. However, you can pass a `:clone => true` option to either method; this will return a _new_ Document object pointing to the same document in MongoDB, leaving the current Document's data unchanged. 
-
-The `.refresh!` method can also take a `:periodic` option (e.g. `my_document.refresh! :periodic => 0.1`) which sets a timer to refresh the data every _n_ seconds until the document is garbage collected. Only one timer is set per Document, so you can alter the interval with subsequent calls or cancel it by passing `:periodic => (nil or false)`.
-Finally, you can pass it a block to be executed after the data is ready.
-
-**IMPORTANT:** Crunch is thread-safe in the sense that fieldsets are immutable and access to them in document objects is controlled by writer-reader locks. However, for _your application logic_, trying to do computation with data that's constantly changing in the background can be fraught with peril. If you're going to turn on periodic refreshes, make sure you know what you're doing. (You could also use the :periodic and the :clone options together, but then you have a different problem in figuring out what to do with all those copies. Watch Disney's _Sorceror's Apprentice_ again before you do this.)
-
-### Updates ###
-
-Once retrieved, the Document can be treated like a hash with indifferent access:
-
-    my_document['age'].equal? my_document[:age]   # true
-    my_document['name'] = "Jill"  # Does not immediately save to MongoDB
-    my_document.keys  # ['age', 'name', _et cetera_]
-
-Call `.save` to update MongoDB with the changed document. This will overwrite the document in the database, losing any other changes that may have been made between retrieval and save.  The `.save` method is synchronous by default, but can be called with the `.save!` bang form for asynchronous saves.
-
-#### Atomic Updates ####
-
-Crunch offers simple support for Mongo's atomic update operators -- in fact it's the preferred approach for changing documents.  The Document object has methods for every atomic operator:
-
-    my_document.set name: 'Jill', age: 27
-    my_document.inc :age, weight: 2  # Non-hash parameters will default to an increment of 1
-    my_document.unset :name, :age
-    my_document.push pets: 'dog' 
-    my_document.push_all pets: ['dog', 'cat', 'iguana'] 
-    my_document.pull pets: 'dog'
-    my_document.pull_all pets: ['dog', 'cat', 'iguana']
-    my_document.pop friends, pets: -1  # Non-hash parameters will default to 1
-    my_document.add_to_set pets: 'dog'
-    
-(Note the mixing of hashed and non-hashed parameters.  Per Ruby syntax rules, hashed parameters must come at the end or be wrapped in _{curly braces}_.)
-
-By default, atomic updates don't happen immediately; they're saved in a special hash in the Document and executed all at once when the `.update` method is run:
-
-    my_document.set name: 'Jill', hair: :red
-    my_document.inc 'age'
-    my_document.set height: 64.0
-    my_document.update  # Executes changes to name, hair, age and height
-
-As with `.insert` and `.save`, the default form of `.update` is synchronous and calls **getLastError** to confirm the update before returning. You can make it asynchronous with the bang form, and optionally provide a block as a callback: 
-
-    my_document.set name: 'Jill', hair: :red
-    my_document.inc 'age'
-    my_document.update! {|doc| doc.refresh!}  # There's a better way -- see the next section
-    
-For one-line updates, you can also pass operations to the `.update` and `.update!` methods -- or simply use the bang forms of the atomic operators:
-
-    my_document.update set: {name: 'Jill'}, inc: {'age'}  # Equivalent to three lines of code
-    my_document.update! inc: :age 
-    my_document.inc! :age  # Equivalent to the line above
-    my_document.push_all! pets: ['dog', 'iguana'] {|doc| doc.notify_iguana_owners}  # Yes, you can add a block as a callback
-    
-#### Atomic Find-and-Modify ####
-
-It's a very common task to make a change, then reload the document to see what changed -- particularly with indeterminate operators such as **$inc** or the array modifiers. MongoDB supports update-and-retrieval as an atomic operation with the **findAndModify** command. You can use this for your own updates by calling the `.modify` method rather than the `.update` method:
-
-    my_document.set name: 'Jill', hair: :red
-    my_document.inc 'age'
-    my_document.modify push: {pets: 'dog'}  # Updates name, hair, age and pets, then changes the Document
-    
-By default, the `.modify` method returns the Document as it exists _after_ the change has been made.  (I.e., it sets the **findAndModify** command's _new_ flag to true.)  If you'd rather retrieve the document from _before_ the change, pass the `:new => false` option.  This is most useful with the **$pop** and **$pull** operators, to see precisely what was removed.  You can also pass the `:clone => true` option, which returns a new Document object with the changes instead of altering the Ruby object on which the operation was performed.
-
-The synchronous form of `.modify` blocks until the result document is returned and has been refreshed into the Document (or the Document's clone). By now you've probably guessed that you can make it asynchronous and optionally pass a block to it with `.modify!` Note that the prior caution about asynchronous changes to data that you're in the middle of using still applies.
-
-
-Query
------
-A **Crunch::Query** object represents a retrievable set of Documents -- i.e., the result set of any query that isn't known to refer to just one record.  The object is initialized with its Database, a collection name, and an immutable set of query criteria and fields.  The query itself is run on an "as needed" basis, with cursors and _"GETMORE"_ operations managed asynchronously in the background.  Queries can be instantiated from a Collection or from another Query (in which case they inherit any existing parameters):
-
-    # Create a Query from a Collection object (this is equivalent to the above)
-    my_query = my_collection.query conditions: {name: /Joe/}, fields: [:name, :birthdate]
-    
-    # Create a Group from a Group object (this one will already be constrained by the above query)
-    subquery = my_query.query conditions: {weight: {'$lte' => 225}}, sort: :birthdate, limit: 20
-    
-
-Queries are partially duck-typed to arrays, and can be accessed by index or enumerated using any of the standard Enumerable methods:
-
-    group.first       # Returns the first Document that meets query conditions
-    group[17]         # Returns the 17th Document that meets query conditions
-    group[101..200]   # Returns the second hundred Documents
-    group.each {|doc| do_something}  # Runs the block on every Document
-    
-### Asynchronous Operations ###
-
-Direct updates and deletes are always asynchronous, returning immediately with a reference to the Group (thus allowing chaining).  Chains of method calls are guaranteed to be done in order, but _when_ they occur is up to EventMachine.
-
-By default, the `.each` method and most other Query methods that retrieve data are synchronous: they'll block the current thread until the full operation completes.  To be precise, they won't come back until the `.deferred_status` of every Document involved is _:succeeded._  (And they'll throw an exception if it comes back _:failed._) This is a developer convenience in recognition of the fact that _most_ Ruby applications aren't built with an event-driven "inversion of control" mindset. And that's fine.  For many jobs, wrapping everything into a chain of callbacks would only increase complexity with little or no practical benefit.
-
-However, for cases when it makes sense, there are several ways to perform asynchronous reads:
-
-2. Methods that default to synchronous can be called with the bang modifier, e.g. `.each!` or `.first!` or `.select!` and so forth. This will return a Deferrable object that you can monitor or ignore as you see fit. When the `.deferred_status` is _:succeeded_, the retrieval is done. Any blocks passed will be run as callbacks after the data is there.
-2. The `[]` accessor method can also be passed a block, e.g.: `my_query[21] {|doc| do_something}`. This will act like the bang form described above, with the block attached as a callback to a deferrable Document or array of Documents.
-1. You can globally set `Crunch.synchronous = false` on application initialization, before the Database is instantiated. All synchronous methods will then act like their bang forms described above.
-2. You can initialize the Database or Query with the `:synchronous => false` option. All synchronous methods will then act like their bang forms described above.
-3. You can _temporarily_ set specific operations as asynchronous by passing them as a block to the `.asynchronous` method: `my_group.asynchronous do ... end`.
-
-Likewise, if global options are set to be asynchronous, you can still make some actions synchronous with the `:synchronous => true` initialization option or by wrapping them in `.synchronous` blocks.
-
- 
-
-
-
-
-
-
-
+Do not confuse the method name `.post` with the HTTP or REST sense of 'posting information.'  The implied meaning here is strictly temporal, and the `.post` method _only_ updates existing records.  If you want to 'post' a new record, consider either the `.push` method (which is the same thing with the _upsert_ option turned on) or the `.create` method (which always produces a new document).
 
 
 

@@ -33,7 +33,7 @@ module Crunch
     # @option opts [Boolean] :create Create the database if it doesn't exist (defaults to true)
     # @option opts [Integer] :min_connections Always maintain at least this many connections (defaults to 1)
     # @option opts [Integer] :max_connections Never create more than this many connections (defaults to 10)
-    # @option opts [Integer] :heartbeat Frequency (in seconds) to perform connection maintenance (defaults to 1)
+    # @option opts [Integer, Float] :heartbeat Frequency (in seconds) to perform connection maintenance (defaults to 1)
     # @return Database The new or existing database object
     def self.connect(name, opts={})
       # Flesh out our options, we're gonna need them...
