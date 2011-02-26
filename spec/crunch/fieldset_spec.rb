@@ -4,19 +4,15 @@ module Crunch
   describe Fieldset do
     before(:each) do
       @bson_string = "+\x00\x00\x00\x02foo\x00\x04\x00\x00\x00bar\x00\x0Etoo\x00\x04\x00\x00\x00tar\x00\x10slappy\x00\x11\x00\x00\x00\x00"
-      @this = Fieldset.new(foo: 'bar', too: :tar, slappy: 17)
+      @this = Fieldset.new(foo: 'bar', too: :tar, 'slappy' => 17)
     end
     
-    it "takes a hash as its values" do
-      @this.values.should == ['bar', :tar, 17]
-    end
-    
-    it "stringifies its keys" do
-      @this.keys.should == ['foo', 'too', 'slappy']
+    it "can be initialized from a hash" do
+      @this['slappy'].should == 17
     end
     
     it "is immutable" do
-      ->{@this[:yoo] = :yar}.should raise_error(FieldsetError, /immutable/)
+      ->{@this[:hi] = 'ho'}.should raise_error(FieldsetError, /immutable/)
     end
     
     it "doesn't clear" do
@@ -58,13 +54,39 @@ module Crunch
     it "doesn't update" do
       ->{@this.update zoo: :zar}.should raise_error(FieldsetError, /immutable/)
     end
+    
+    it "can be initialized from a Fieldset" do
+      that = @this
+      that.should == @this
+    end
+
+    it "stringifies its keys" do
+      @this.keys.should == ['foo', 'too', 'slappy']
+    end
+
+    it "stringifies number keys" do
+      that = Fieldset.new(7 => 'Eleven')
+      that['7'].should == 'Eleven'
+    end
+    
+    it "returns BSON when asked for a string" do
+      @this.to_s.should == @bson_string
+    end
+    
+    it "returns a Hash when asked for one" do
+      h = @this.to_hash
+      h.class.should == Hash
+      h['foo'].should == 'bar'
+    end
+    
         
-    it "takes a binary string as its values" do
+    it "can be initialized from a BSON binary string" do
       this = Fieldset.new(@bson_string)
       this.should == {"foo" => 'bar', "too" => :tar, "slappy" => 17}
     end
     
-    it "takes a ByteBuffer as its values" do
+    
+    it "can be initialized from a BSON ByteBuffer" do
       this = Fieldset.new(BSON::ByteBuffer.new(@bson_string))
       this.should == {"foo" => 'bar', "too" => :tar, "slappy" => 17}
     end
@@ -74,14 +96,19 @@ module Crunch
       this.should == {'foo' => 1, 'bar' => 1, 'blah' => 1}
     end
     
+    it "can be initialized from nil" do
+      this = Fieldset.new
+      this.should == {}
+      this.to_s.should == "\x05\x00\x00\x00\x00"
+    end
+    
     it "complains if anything else is given" do
       ->{this = Fieldset.new(5)}.should raise_error(FieldsetError)
     end
     
-    it "knows how to serialize itself" do
-      @this.to_bson.should == @bson_string
+    it "indicates its class when inspected" do
+      @this.inspect.should =~ /Fieldset.*slappy/
     end
-    
     
   end
 end

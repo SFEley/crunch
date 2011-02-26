@@ -24,5 +24,9 @@ watch '^spec/spec_helper.rb' do |match|
   system "rspec spec"
 end
 
+# Give ourselves an out...
+Signal.trap('QUIT') { system "rspec spec"  } # Ctrl-\
+Signal.trap('INT' ) { abort("\n") } # Ctrl-C
+
 # Having set all that up, let's run the whole suite just for starters.
 system "rspec spec"
