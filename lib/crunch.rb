@@ -4,6 +4,7 @@ require 'crunch/exceptions'
 module Crunch
   # Hey, it's Ruby 1.9.  Autoload is safe again!  Spread the word!
   autoload :Fieldset, 'crunch/fieldset'
+  autoload :Database, 'crunch/database'
   
   
   # Utility methods

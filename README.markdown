@@ -56,7 +56,7 @@ Database
 --------
 The **Crunch::Database** class abstracts the communication with the server. There is one singleton Database object per Mongo database, and each maintains one or more server connections. Because it's a singleton, you invoke the instance with `.connect` rather than `.new`:
 
-    db = Crunch::Database.connect 'babylon_5', host: 'example.org', user: 'zathras', password: 'n0tthe1'
+    db = Crunch::Database.connect 'babylon_5', host: 'example.org'
     
 If you call the `.connect` method again with the same database name, host, and port, you'll get the same Database object back.  If you change any of these parameters you'll receive a different Database object.
 
@@ -81,7 +81,7 @@ Note that the asynchronous nature of Crunch's connection pool necessarily breaks
 
 ### Options ###
 
-There are two types of options to the `connect` method: _server_ options and _tuning_ options.  Server options can only be set using the `.connect` method, but can be read as attributes (except for **:password**) at any time.  Tuning options are read/write attributes of the object as well.
+There are two types of options to the `connect` method: _server_ options and _tuning_ options.  Server options can only be set using the `.connect` method, but can be read as attributes at any time.  Tuning options are read/write attributes of the object as well.  If `.connect` returns a Database that already exists, specifying these options will alter its attributes.  (Which will affect any other references to it.  Be warned!)
 
 #### Server Options ####
 
