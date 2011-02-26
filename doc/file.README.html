@@ -43,17 +43,15 @@
     
     <div id="content"><div id='filecontents'><h1>Crunch</h1>
 
-<p>Crunch is an alternative MongoDB driver with an emphasis on high concurrency, atomic update operations, and document integrity. It uses EventMachine for non-blocking writes and reads, with optional synchronous wrappers for easy integration with non-evented applications. Its API is simpler and more Rubyish than the official MongoDB Ruby driver, but aims to support the same range of MongoDB features.</p>
+<p>Crunch is an alternative MongoDB driver with an emphasis on high concurrency, atomic update operations, and document integrity. It uses EventMachine for non-blocking writes and reads, with synchronous fallback for easy integration with non-evented applications. Its API is simpler and more Rubyish than the official MongoDB Ruby driver, but aims to support the same range of MongoDB features.</p>
 
 <p><em>(<strong>DISCLAIMER:</strong> It isn't fully baked yet.  This README was written early in the process to document the design principles.  Much of what you'll read below doesn't work yet, and any of this is subject to change as ideas are proven unsound through experimentation.  Please don't try to use this in any serious code until it's ready.  You'll know when it's ready because this text won't be here.)</em></p>
 
 <h2>Structure</h2>
 
-<p>Although it wraps the Mongo wire protocol, Crunch diverges conceptually from the "flat struct" operations that the protocol encourages.  It's always bugged me a bit that Mongo interfaces overload the collection class with document-specific operations, while documents themselves are unclassed hashes with vague limitations.  Meanwhile, the division of responsibility between connections, databases, and collections is murky and often overlapping.  This isn't a flaw in Mongo's architecture, nor is it bad coding on the part of the driver developers.  It comes from trying to impose a <em>thin</em> object-oriented layer on top of a purely functional binary protocol.</p>
+<p>Although it wraps the Mongo wire protocol, Crunch diverges conceptually from the "flat struct" operations that the protocol encourages.  It's always bugged me that Mongo interfaces overload the collection class with document-specific operations, while documents themselves are simple hashes with vague limitations.  Meanwhile, the division of responsibility between connections, databases, and collections is murky and often overlapping.  This isn't a flaw in Mongo's architecture, nor is it bad coding on the part of the driver developers.  It comes from trying to impose a <em>thin</em> object-oriented layer on top of a purely functional binary protocol.</p>
 
-<p>Crunch offers a different perspective on the same actions. At the highest level, there are three major categories of first-class objects -- the <strong>Database</strong>, <strong>Collections</strong> and <strong>Queries</strong>, and <strong>Documents</strong>. An intermediate level translates the methods of these objects into BSON serialized messages conforming to Mongo's wire protocol, and EventMachine takes care of sending and receiving binary data from the server.</p>
-
-<p><img src="https://sfe_misc.s3.amazonaws.com/crunch_class_diagram.svg" alt="Class diagram" /></p>
+<p>Crunch presents a more object-driven layer over the same operations. At the highest level, there are four major classes to understand: the <strong>Database</strong>, the <strong>Collection</strong>, the <strong>Query</strong>, and the <strong>Document</strong>.  The <strong>Fieldset</strong> utility class (of which <strong>Document</strong> is a subclass) is used in place of hashes.  Any Crunch objects representing data are <em>immutable</em> -- once created, they can't be changed. An intermediate level manages connections and BSON serialized messages conforming to Mongo's wire protocol, and EventMachine takes care of sending and receiving binary data from the server.</p>
 
 <h2>Synchronous vs. Asynchronous</h2>
 
@@ -61,8 +59,9 @@
 
 <ol>
 <li>Communicate with the MongoDB server entirely using asynchronous calls and callbacks.</li>
-<li>By default, sleep until the answers come back so that the user doesn't have to understand step 1.</li>
-<li>Provide options and bang-methods (e.g., <code>.update!</code> instead of <code>.update</code>) so that users who <em>know</em> what they're doing aren't bogged down by step 2.</li>
+<li>Pre-load a reasonable amount of data in the event loop before the application asks for it.</li>
+<li>Allow the application to provide blocks (callbacks) to operate on data as it comes in.</li>
+<li>If the application does <em>not</em> provide callbacks, and asks for data we don't have yet, get the data and make it wait.  We call this <em>synchronous fallback</em>, but in practice it's probably more common.</li>
 </ol>
 
 
@@ -80,184 +79,561 @@
 
 <h3>Crunch and the Loop</h3>
 
-<p>Crunch requires an EventMachine reactor loop to be running.  If you are already writing an EM-driven application, or using Thin or another evented application server, great. EventMachine will already be running and Crunch will simply insert its own actions into the loop.  If your architecture is asynchronous, you may wish to set the global option <code>Crunch.synchronous = false</code> so that you don't have to worry about when to use bang methods. (See the following sections.)</p>
+<p>Crunch requires an EventMachine reactor loop to be running.  If you are already writing an EM-driven application, or using Thin or another evented application server, great. Crunch will notice that EventMachine is already running and simply insert its own actions into the loop.  If EM <em>isn't</em> running, the first call to <code>Database.connect</code> will start the EM reactor in a separate thread.</p>
 
-<p>Otherwise, if EM <em>isn't</em> running, the first call to <code>Database.connect</code> will start the EM reactor in a separate thread.  Any Crunch methods that talk to a MongoDB server (and a few that don't) will run in that thread and set thread-safe attributes to indicate completion or state of readiness.  Most of the <em>synchronous</em> methods in Crunch simply call the asynchronous forms, then use monitors to sleep until the object's state says it's done.</p>
+<p>The public interface of Crunch does <em>not</em> take place in the EventMachine loop.  It runs in your own application's thread(s).  If you ask for a Mongo operation that does not require a response (i.e. an insert, update, or delete) it'll inject the proper code into the EM loop and return right away.  If you make a request that needs an answer (i.e. queries, or updates in 'safe mode') then the Crunch method you called will not return until the answer comes back.  You can bypass this behavior and make it return immediately by giving it a block to run on the response.</p>
 
-<p>It sounds complicated, but from the end user side we've tried to keep it simple.  This is the sanest way to build a library that has asynchronous components without forcing you to twist your entire application around the library.  (As an aside, it's also why we didn't use Ruby 1.9 fibers instead of threads.  It's just no good for an EM-agnostic library: to make it work properly, <em>your</em> code would have to know when to yield or resume to the EM reactor's fiber, and then it starts to get ugly.)</p>
+<p>It sounds complicated, but from the end user side we've tried to keep it simple.  It's the sane way to build a library that has asynchronous components without forcing you to twist your entire application around the library.  (As an aside, it's also why we didn't use Ruby 1.9 fibers instead of threads.  It's just no good for an EM-agnostic library: to make it work properly, <em>your</em> code would have to know when to yield or resume to the EM reactor's fiber, and then it starts to get ugly.)</p>
+
+<h2>Fieldset</h2>
+
+<p>You'll encounter the <strong>Crunch::Fieldset</strong> class a lot when looking at other Crunch objects. It's a Hash subclass with some notable MongoDB-related differences:</p>
+
+<ul>
+<li>It's immutable. Once created, you can't change the keys nor their values. The object freezes itself on initialization, and common Hash methods that would change the contents will raise an exception.</li>
+<li>All keys are strings. If you initialize it with an ordinary hash, non-string keys will be converted to strings.</li>
+<li>The <code>.to_s</code> string conversion method returns the fieldset as a BSON binary string.</li>
+</ul>
+
+
+<p>Fieldsets are used throughout Crunch for any MongoDB action involving "a BSON document." (Which is most of them.) Query selectors, update operations, and many other attributes are Fieldsets.  The <strong>Crunch::Document</strong> class is a subset of Fieldset with a required <em>'_id'</em> key and some extra behavior.</p>
+
+<p>In most cases there's no need to create Fieldsets manually -- they're automatically generated from the parameters passed to the various Crunch methods.  Hashes are deeply recursed, and arrays become hashes with values of <em>1.</em> (A common MongoDB idiom.) You can also produce a Fieldset from a BSON string or byte buffer. If you ever need to make one, see the documentation.</p>
 
 <h2>Database</h2>
 
-<p>The <strong>Crunch::Database</strong> class abstracts all communication with the server. There is one singleton Database object per Mongo database, and each maintains one or more server connections. Because it's a singleton, you invoke the instance with <code>.connect</code> rather than <code>.new</code>:</p>
+<p>The <strong>Crunch::Database</strong> class abstracts the communication with the server. There is one singleton Database object per Mongo database, and each maintains one or more server connections. Because it's a singleton, you invoke the instance with <code>.connect</code> rather than <code>.new</code>:</p>
 
-<pre class="code"><span class='id db'>db</span> <span class='op'>=</span> <span class='const'>Crunch</span><span class='op'>::</span><span class='const'>Database</span><span class='period'>.</span><span class='id connect'>connect</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>my_database_name</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>host:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>example.org</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>port:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>71072</span><span class='tstring_end'>'</span></span>
+<pre class="code"><span class='id db'>db</span> <span class='op'>=</span> <span class='const'>Crunch</span><span class='op'>::</span><span class='const'>Database</span><span class='period'>.</span><span class='id connect'>connect</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>babylon_5</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>host:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>example.org</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>user:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>zathras</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>password:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>n0tthe1</span><span class='tstring_end'>'</span></span>
 </pre>
 
-<p>(The <em>host</em> and <em>port</em> default to localhost and 27017, of course.)</p>
+<p>If you call the <code>.connect</code> method again with the same database name, host, and port, you'll get the same Database object back.  If you change any of these parameters you'll receive a different Database object.</p>
 
-<p>Groups and Documents make queries or updates by passing messages to their Database.  The Database then forwards the message to a subclass of EventMachine::Connection, which sends the binary data to the MongoDB server.  In the case of queries, a reference to the originating Group or Document is also passed so that it can be told to update itself when the response comes back.</p>
+<h3>Connection Pool</h3>
 
-<h2>Document</h2>
+<p>Each Database object maintains a private pool of connections to the server, and will scale them up or down based on the running size of the request queue.  These "connections" are just network constructs for dealing with EventMachine; don't confuse them with the top-level Connection class found in other drivers.  There's no public API to an individual connection.  However, you <em>can</em> tune the Database's behavior in terms of pool size and rate of change.</p>
 
-<p>The <strong>Crunch::Document</strong> class allows MongoDB documents to create, read, update, or delete themselves on an individual basis.  It's duck-typed to a Hash, except that all keys are converted to strings on assignment and any values which cannot be serialized to BSON will raise an exception.</p>
-
-<h3>Creation</h3>
-
-<p>You can create an unsaved Document from scratch by passing it a Database and a collection name or Collection object:</p>
-
-<pre class="code"><span class='id my_document'>my_document</span> <span class='op'>=</span> <span class='const'>Document</span><span class='period'>.</span><span class='id new'>new</span> <span class='id db'>db</span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>my_collection</span><span class='tstring_end'>'</span></span>
-</pre>
-
-<p>You can also pass a hash of initial data. The new Document will have a generated ObjectId unless you pass it an <code>:id</code> parameter. Call <code>.insert</code> or <code>.save</code> at any time to bring it into the database.</p>
-
-<p>You can insert documents as a hash into a Database or Collection object with the <code>.insert</code> method:</p>
-
-<pre class="code"><span class='id db'>db</span><span class='period'>.</span><span class='id insert'>insert</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>my_collection</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>foo</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='symbol'>:bar</span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>abc</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='lbracket'>[</span><span class='int'>1</span><span class='comma'>,</span> <span class='int'>2</span><span class='comma'>,</span> <span class='int'>3</span><span class='rbracket'>]</span>
-<span class='id my_collection'>my_collection</span><span class='period'>.</span><span class='id insert'>insert</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>foo</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='symbol'>:bar</span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>abc</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='lbracket'>[</span><span class='int'>1</span><span class='comma'>,</span> <span class='int'>2</span><span class='comma'>,</span> <span class='int'>3</span><span class='rbracket'>]</span>
-</pre>
-
-<p>Both will immediately return a Crunch::Document object that can be used for subsequent updates.  Inserts are synchronous by default, in that <strong>getLastError</strong> is immediately called to confirm the operation and the method sleeps until it returns. If you wish to make an asynchronous update, use the bang form: <code>my_collection.insert! 'foo' =&gt; :bar</code>. (This is reasonably safe and recommended in most circumstances, even if you prefer synchronous reads.)</p>
-
-<h3>Retrieval</h3>
-
-<p>Documents can be retrieved from Databases, Collections or Groups with the <code>.document</code> method. You can pass the document's ID or a hash of query options:</p>
-
-<pre class="code"><span class='id id'>id</span> <span class='op'>=</span> <span class='const'>Crunch</span><span class='period'>.</span><span class='id oid'>oid</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>4c14f7943f165103d2000015</span><span class='tstring_end'>'</span></span>  <span class='comment'># Makes a BSON ObjectId from a string or number
-</span><span class='id db'>db</span><span class='period'>.</span><span class='id document'>document</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>my_collection</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='id id'>id</span>
-<span class='id my_collection'>my_collection</span><span class='period'>.</span><span class='id document'>document</span> <span class='id id'>id</span>
-<span class='id my_collection'>my_collection</span><span class='period'>.</span><span class='id document'>document</span> <span class='label'>name:</span> <span class='tstring'><span class='regexp_beg'>/</span><span class='tstring_content'>Joe</span><span class='regexp_end'>/</span></span><span class='comma'>,</span> <span class='label'>age:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>$lt</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='int'>35</span><span class='rbrace'>}</span>  <span class='comment'># Returns the first document matching the query parameters
-</span><span class='id my_group'>my_group</span><span class='period'>.</span><span class='id document'>document</span> <span class='label'>age:</span> <span class='int'>35</span>  <span class='comment'># Inherits the query parameters of the Group
-</span><span class='id my_group'>my_group</span><span class='period'>.</span><span class='id document'>document</span> <span class='label'>name:</span> <span class='tstring'><span class='regexp_beg'>/</span><span class='tstring_content'>Joe</span><span class='regexp_end'>/</span></span><span class='comma'>,</span> <span class='label'>fields:</span> <span class='lbracket'>[</span><span class='symbol'>:name</span><span class='comma'>,</span> <span class='symbol'>:age</span><span class='rbracket'>]</span>  <span class='comment'># Limits fields returned
-</span></pre>
-
-<p>Queries are sent to the MongoDB server as-is, with only basic BSON serialization performed.  You can include any of the advanced query operators, e.g. <strong>$gte</strong>, <strong>$in</strong>, <strong>$not</strong>, etc.</p>
-
-<h4>Asynchronous Retrieval</h4>
-
-<p>Single-document retrievals are synchronous by default: the <code>.document</code> method won't return until the data has been returned from MongoDB and deserialized.  Failures will return an exception from the method. You can make the retrieval asynchronous in a few ways:</p>
+<p>The basic flow is a "grow quickly, shrink slowly" algorithm which works as follows:</p>
 
 <ol>
-<li>You can call the bang form of the method: <code>my_collection.document! id</code>. You can optionally pass a block as well. The Document object will return immediately, and the block (if given) will be attached as a success callback. You can check the <code>.ready?</code> attribute at any time to determine whether the data is available yet.  Attempts to read the data before it's ready will throw an exception.</li>
-<li>You can globally set <code>Crunch.synchronous = false</code> on application initialization.  Document retrieval will then act like its bang form described above.</li>
-<li>You can pass the <code>:synchronous =&gt; false</code> option to the <code>.document</code> method.  It will then act like its bang form.</li>
+<li>The Database object is created with a minimum number of connections. (The default is 1.)</li>
+<li>As your application asks for things from MongoDB, the requests are added to a queue managed by EventMachine.</li>
+<li>Idle connections poll the request queue as often as the EventMachine loop lets them.  (Roughly a gazillion times a second.)  If there's a request waiting, a connection will take it and dispatch it immediately.</li>
+<li>A "heartbeat" timer checks the size of the request queue periodically (the default is every second) to determine if there are too few or too many connections:
+
+<ul>
+<li>If the size of the queue is larger than the current number of connections, a new connection is added, up to the maximum allowed (the default is 10).</li>
+<li>If the size of the queue has been smaller than the current connection count for <em>count**2</em> heartbeats (i.e., the square of the number of connections) it closes a single connection and resets the counter.  This doesn't happen, of course, if the connection count is already at the minimum allowed.</li>
+</ul>
+</li>
 </ol>
 
 
-<p>The Document method that's returned includes the <strong>EventMachine::Deferrable</strong> module, and therefore can have callbacks attached to it at any time.</p>
+<p>The actual load will depend on your request pattern. Inserts, updates and deletes expect no reply (unless the <strong>:safe</strong> option is true) and the connection will immediately go back to the queue. Queries and 'safe mode' writes will occupy connections longer as they wait for a server response. A "write only" application could sustain a very high rate of small updates with only a single connection, whereas an application that's heavy on queries (or uses safe mode for all writes) would be more likely to grow the connection pool.</p>
 
-<h4>Reloading Documents</h4>
+<p>You can check the size of the request queue with the <code>.pending_count</code> method, and the size of the connection pool with the <code>.connection_count</code> method.  If you find that the connection count is staying at maximum but your CPU and network bandwidth aren't close to 100% yet, you can safely adjust the <code>.max_connections</code> attribute at run time to raise the ceiling.</p>
 
-<p>In a highly concurrent Mongo environment, there is no assurance that a Document won't go stale while you're working with it.  You can retrieve the data from MongoDB again at any time by using the <code>.refresh</code> (synchronous) or <code>.refresh!</code> (asynchronous) methods. On completion, the refresh will overwrite the data in the Document on which the method is called. However, you can pass a <code>:clone =&gt; true</code> option to either method; this will return a <em>new</em> Document object pointing to the same document in MongoDB, leaving the current Document's data unchanged.</p>
+<p>Note that the asynchronous nature of Crunch's connection pool necessarily breaks serialization. I.e., there's no guarantee that requests you send will be received by the server and processed in order. They'll be <em>queued</em> in order, but if you have, say, an update containing 2 MB of data followed by one that simply increments an integer, it's quite likely that the second update will happen first on the server.  If this is a problem, your recourse is to set <strong>:max_connections</strong> to 1.  (Or fix your business logic. Or use a database that supports transactions.)</p>
 
-<p>The <code>.refresh!</code> method can also take a <code>:periodic</code> option (e.g. <code>my_document.refresh! :periodic =&gt; 0.1</code>) which sets a timer to refresh the data every <em>n</em> seconds until the document is garbage collected. Only one timer is set per Document, so you can alter the interval with subsequent calls or cancel it by passing <code>:periodic =&gt; (nil or false)</code>.
-Finally, you can pass it a block to be executed after the data is ready.</p>
+<h3>Options</h3>
 
-<p><strong>IMPORTANT:</strong> Crunch is thread-safe in the sense that fieldsets are immutable and access to them in document objects is controlled by writer-reader locks. However, for <em>your application logic</em>, trying to do computation with data that's constantly changing in the background can be fraught with peril. If you're going to turn on periodic refreshes, make sure you know what you're doing. (You could also use the :periodic and the :clone options together, but then you have a different problem in figuring out what to do with all those copies. Watch Disney's <em>Sorceror's Apprentice</em> again before you do this.)</p>
+<p>There are two types of options to the <code>connect</code> method: <em>server</em> options and <em>tuning</em> options.  Server options can only be set using the <code>.connect</code> method, but can be read as attributes (except for <strong>:password</strong>) at any time.  Tuning options are read/write attributes of the object as well.</p>
 
-<h3>Updates</h3>
+<h4>Server Options</h4>
 
-<p>Once retrieved, the Document can be treated like a hash with indifferent access:</p>
+<p>These options are used for finding and authenticating to the database.  The <em>name</em> of the database is of course a server attribute as well; however, as the only required parameter, it isn't part of the options hash.</p>
 
-<pre class="code"><span class='id my_document'>my_document</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>age</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span><span class='period'>.</span><span class='id equal?'>equal?</span> <span class='id my_document'>my_document</span><span class='lbracket'>[</span><span class='symbol'>:age</span><span class='rbracket'>]</span>   <span class='comment'># true
-</span><span class='id my_document'>my_document</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span> <span class='op'>=</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Jill</span><span class='tstring_end'>&quot;</span></span>  <span class='comment'># Does not immediately save to MongoDB
-</span><span class='id my_document'>my_document</span><span class='period'>.</span><span class='id keys'>keys</span>  <span class='comment'># ['age', 'name', _et cetera_]
-</span></pre>
+<ul>
+<li><strong>:host</strong> <em>(String)</em> The IP address or DNS name to connect to.  Defaults to <em>localhost</em>.</li>
+<li><strong>:port</strong> <em>(String)</em> The port for all connections.  Defaults to <em>27017</em> per Mongo canon.</li>
+</ul>
 
-<p>Call <code>.save</code> to update MongoDB with the changed document. This will overwrite the document in the database, losing any other changes that may have been made between retrieval and save.  The <code>.save</code> method is synchronous by default, but can be called with the <code>.save!</code> bang form for asynchronous saves.</p>
 
-<h4>Atomic Updates</h4>
+<p>Note that authentication and connecting to replica sets or pairs are not supported. <em>Yet.</em> It'll come.</p>
 
-<p>Crunch offers simple support for Mongo's atomic update operators -- in fact it's the preferred approach for changing documents.  The Document object has methods for every atomic operator:</p>
+<h4>Tuning Options</h4>
 
-<pre class="code"><span class='id my_document'>my_document</span><span class='period'>.</span><span class='id set'>set</span> <span class='label'>name:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Jill</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>age:</span> <span class='int'>27</span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id inc'>inc</span> <span class='symbol'>:age</span><span class='comma'>,</span> <span class='label'>weight:</span> <span class='int'>2</span>  <span class='comment'># Non-hash parameters will default to an increment of 1
-</span><span class='id my_document'>my_document</span><span class='period'>.</span><span class='id unset'>unset</span> <span class='symbol'>:name</span><span class='comma'>,</span> <span class='symbol'>:age</span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id push'>push</span> <span class='label'>pets:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>dog</span><span class='tstring_end'>'</span></span> 
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id push_all'>push_all</span> <span class='label'>pets:</span> <span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>dog</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>cat</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>iguana</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span> 
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id pull'>pull</span> <span class='label'>pets:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>dog</span><span class='tstring_end'>'</span></span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id pull_all'>pull_all</span> <span class='label'>pets:</span> <span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>dog</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>cat</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>iguana</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id pop'>pop</span> <span class='id friends'>friends</span><span class='comma'>,</span> <span class='label'>pets:</span> <span class='op'>-</span><span class='int'>1</span>  <span class='comment'># Non-hash parameters will default to 1
-</span><span class='id my_document'>my_document</span><span class='period'>.</span><span class='id add_to_set'>add_to_set</span> <span class='label'>pets:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>dog</span><span class='tstring_end'>'</span></span>
-</pre>
+<p>You can set the pool size and growth/reduction rate with the following options:</p>
 
-<p>(Note the mixing of hashed and non-hashed parameters.  Per Ruby syntax rules, hashed parameters must come at the end or be wrapped in <em>braces</em>.)</p>
+<ul>
+<li><strong>:min_connections</strong> <em>(Integer)</em> Always maintain at least this many connections. Defaults to <em>1</em>.</li>
+<li><strong>:max_connections</strong> <em>(Integer)</em> Don't grow the pool past this size. Defaults to <em>10</em>.</li>
+<li><strong>:heartbeat</strong> <em>(Integer, Float)</em> Interval in seconds at which to perform connection maintenance. Defaults to <em>1</em>.</li>
+</ul>
 
-<p>By default, atomic updates don't happen immediately; they're saved in a special hash in the Document and executed all at once when the <code>.update</code> method is run:</p>
-
-<pre class="code"><span class='id my_document'>my_document</span><span class='period'>.</span><span class='id set'>set</span> <span class='label'>name:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Jill</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>hair:</span> <span class='symbol'>:red</span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id inc'>inc</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>age</span><span class='tstring_end'>'</span></span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id set'>set</span> <span class='label'>height:</span> <span class='float'>64.0</span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id update'>update</span>  <span class='comment'># Executes changes to name, hair, age and height
-</span></pre>
-
-<p>As with <code>.insert</code> and <code>.save</code>, the default form of <code>.update</code> is synchronous and calls <strong>getLastError</strong> to confirm the update before returning. You can make it asynchronous with the bang form, and optionally provide a block as a callback:</p>
-
-<pre class="code"><span class='id my_document'>my_document</span><span class='period'>.</span><span class='id set'>set</span> <span class='label'>name:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Jill</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>hair:</span> <span class='symbol'>:red</span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id inc'>inc</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>age</span><span class='tstring_end'>'</span></span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id update!'>update!</span> <span class='lbrace'>{</span><span class='op'>|</span><span class='id doc'>doc</span><span class='op'>|</span> <span class='id doc'>doc</span><span class='period'>.</span><span class='id refresh!'>refresh!</span><span class='rbrace'>}</span>  <span class='comment'># There's a better way -- see the next section
-</span></pre>
-
-<p>For one-line updates, you can also pass operations to the <code>.update</code> and <code>.update!</code> methods -- or simply use the bang forms of the atomic operators:</p>
-
-<pre class="code">my_document.update set: {name: 'Jill'}, inc: {'age'}  # Equivalent to three lines of code
-my_document.update! inc: :age 
-my_document.inc! :age  # Equivalent to the line above
-my_document.push_all! pets: ['dog', 'iguana'] {|doc| doc.notify_iguana_owners}  # Yes, you can add a block as a callback
-</pre>
-
-<h4>Atomic Find-and-Modify</h4>
-
-<p>It's a very common task to make a change, then reload the document to see what changed -- particularly with indeterminate operators such as <strong>$inc</strong> or the array modifiers. MongoDB supports update-and-retrieval as an atomic operation with the <strong>findAndModify</strong> command. You can use this for your own updates by calling the <code>.modify</code> method rather than the <code>.update</code> method:</p>
-
-<pre class="code"><span class='id my_document'>my_document</span><span class='period'>.</span><span class='id set'>set</span> <span class='label'>name:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Jill</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>hair:</span> <span class='symbol'>:red</span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id inc'>inc</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>age</span><span class='tstring_end'>'</span></span>
-<span class='id my_document'>my_document</span><span class='period'>.</span><span class='id modify'>modify</span> <span class='label'>push:</span> <span class='lbrace'>{</span><span class='label'>pets:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>dog</span><span class='tstring_end'>'</span></span><span class='rbrace'>}</span>  <span class='comment'># Updates name, hair, age and pets, then changes the Document
-</span></pre>
-
-<p>By default, the <code>.modify</code> method returns the Document as it exists <em>after</em> the change has been made.  (I.e., it sets the <strong>findAndModify</strong> command's <em>new</em> flag to true.)  If you'd rather retrieve the document from <em>before</em> the change, pass the <code>:new =&gt; false</code> option.  This is most useful with the <strong>$pop</strong> and <strong>$pull</strong> operators, to see precisely what was removed.  You can also pass the <code>:clone =&gt; true</code> option, which returns a new Document object with the changes instead of altering the Ruby object on which the operation was performed.</p>
-
-<p>The synchronous form of <code>.modify</code> blocks until the result document is returned and has been refreshed into the Document (or the Document's clone). By now you've probably guessed that you can make it asynchronous and optionally pass a block to it with <code>.modify!</code> Note that the prior caution about asynchronous changes to data that you're in the middle of using still applies.</p>
 
 <h2>Query</h2>
 
-<p>A <strong>Crunch::Query</strong> object represents a retrievable set of Documents -- i.e., the result set of any query that isn't known to refer to just one record.  The object is initialized with its Database, a collection name, and an immutable set of query criteria and fields.  The query itself is run on an "as needed" basis, with cursors and <em>"GETMORE"</em> operations managed asynchronously in the background.  Queries can be instantiated from a Collection or from another Query (in which case they inherit any existing parameters):</p>
+<p>The <strong>Crunch::Query</strong> class retrieves data from the database and presents it as an Array-like Enumerable. Unlike many other database libraries, basic Crunch queries are <em>immediate</em> and <em>immutable</em>.  They'll ask the server for a cursor the moment they're instantiated (unless you flag them not to) and any changes made to retrieved data won't be reflected until you make another query. The server request is always asynchronous. Synchronous delays will only occur if you try to <em>read</em> the data before it comes back -- and you can still avoid them by passing a block.</p>
 
-<pre class="code"><span class='comment'># Create a Query from a Collection object (this is equivalent to the above)
-</span><span class='id my_query'>my_query</span> <span class='op'>=</span> <span class='id my_collection'>my_collection</span><span class='period'>.</span><span class='id query'>query</span> <span class='label'>conditions:</span> <span class='lbrace'>{</span><span class='label'>name:</span> <span class='tstring'><span class='regexp_beg'>/</span><span class='tstring_content'>Joe</span><span class='regexp_end'>/</span></span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='label'>fields:</span> <span class='lbracket'>[</span><span class='symbol'>:name</span><span class='comma'>,</span> <span class='symbol'>:birthdate</span><span class='rbracket'>]</span>
+<p>This design enables speed (the data's on its way before you start to look at it) and simplicity (the cursor itself is an internal detail hidden from the API). MongoDB never guarantees transactional isolation, but Crunch timestamps every server response, so you can know how stale your data might be and whether a refresh is needed. You never reload data in place; you simply clone the query and get the data again. Several other base classes use Queries under the hood.</p>
 
-<span class='comment'># Create a Group from a Group object (this one will already be constrained by the above query)
-</span><span class='id subquery'>subquery</span> <span class='op'>=</span> <span class='id my_query'>my_query</span><span class='period'>.</span><span class='id query'>query</span> <span class='label'>conditions:</span> <span class='lbrace'>{</span><span class='label'>weight:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>$lte</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='int'>225</span><span class='rbrace'>}</span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='label'>sort:</span> <span class='symbol'>:birthdate</span><span class='comma'>,</span> <span class='label'>limit:</span> <span class='int'>20</span>
-</pre>
+<h3>Creation</h3>
 
-<p>Queries are partially duck-typed to arrays, and can be accessed by index or enumerated using any of the standard Enumerable methods:</p>
+<p>You can create a Query in several ways, depending on how much work you already want done for you. The options hashes in the examples below may not make sense immediately; it'll be covered shortly.</p>
 
-<pre class="code"><span class='id group'>group</span><span class='period'>.</span><span class='id first'>first</span>       <span class='comment'># Returns the first Document that meets query conditions
-</span><span class='id group'>group</span><span class='lbracket'>[</span><span class='int'>17</span><span class='rbracket'>]</span>         <span class='comment'># Returns the 17th Document that meets query conditions
-</span><span class='id group'>group</span><span class='lbracket'>[</span><span class='int'>101</span><span class='op'>..</span><span class='int'>200</span><span class='rbracket'>]</span>   <span class='comment'># Returns the second hundred Documents
-</span><span class='id group'>group</span><span class='period'>.</span><span class='id each'>each</span> <span class='lbrace'>{</span><span class='op'>|</span><span class='id doc'>doc</span><span class='op'>|</span> <span class='id do_something'>do_something</span><span class='rbrace'>}</span>  <span class='comment'># Runs the block on every Document
+<h4>Directly</h4>
+
+<p>Pass a Collection object in the first parameter, and then any options or query selectors as a hash.  So:</p>
+
+<pre class="code"><span class='id db'>db</span> <span class='op'>=</span> <span class='const'>Database</span><span class='period'>.</span><span class='id connect'>connect</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>babylon_5</span><span class='tstring_end'>'</span></span>
+<span class='id collection'>collection</span> <span class='op'>=</span> <span class='id db'>db</span><span class='period'>.</span><span class='id collection'>collection</span> <span class='symbol'>:characters</span>
+<span class='id query'>query</span> <span class='op'>=</span> <span class='const'>Query</span><span class='period'>.</span><span class='id new'>new</span> <span class='id collection'>collection</span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>species</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Vorlon</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='symbol'>:limit</span> <span class='op'>=&gt;</span> <span class='int'>1</span>
+<span class='id query'>query</span><span class='period'>.</span><span class='id first'>first</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span>   <span class='comment'>#=&gt; 'Kosh'
 </span></pre>
 
-<h3>Asynchronous Operations</h3>
+<h4>From a Collection</h4>
 
-<p>Direct updates and deletes are always asynchronous, returning immediately with a reference to the Group (thus allowing chaining).  Chains of method calls are guaranteed to be done in order, but <em>when</em> they occur is up to EventMachine.</p>
+<p>The Collection object has a <code>.query</code> method as a shortcut to the above. This time you only have to worry about your options hash:</p>
 
-<p>By default, the <code>.each</code> method and most other Query methods that retrieve data are synchronous: they'll block the current thread until the full operation completes.  To be precise, they won't come back until the <code>.deferred_status</code> of every Document involved is <em>:succeeded.</em>  (And they'll throw an exception if it comes back <em>:failed.</em>) This is a developer convenience in recognition of the fact that <em>most</em> Ruby applications aren't built with an event-driven "inversion of control" mindset. And that's fine.  For many jobs, wrapping everything into a chain of callbacks would only increase complexity with little or no practical benefit.</p>
+<pre class="code"><span class='id query'>query</span> <span class='op'>=</span> <span class='id collection'>collection</span><span class='period'>.</span><span class='id query'>query</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>characters</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>role</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Commander</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='regexp_beg'>/</span><span class='tstring_content'>J.+ S.+</span><span class='regexp_end'>/</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>messianic</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='kw'>true</span>
+<span class='id query'>query</span><span class='period'>.</span><span class='id collect'>collect</span> <span class='lbrace'>{</span><span class='op'>|</span><span class='id c'>c</span><span class='op'>|</span> <span class='id c'>c</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span><span class='rbrace'>}</span>   <span class='comment'>#=&gt; ['Jeffrey Sinclair', 'John Sheridan']
+</span></pre>
 
-<p>However, for cases when it makes sense, there are several ways to perform asynchronous reads:</p>
+<h4>From Another Query</h4>
+
+<p>Queries can spawn other queries. The new query inherits all the options of its parent, which can be added to or overridden:</p>
+
+<pre class="code"><span class='id first_query'>first_query</span> <span class='op'>=</span> <span class='id collection'>collection</span><span class='period'>.</span><span class='id query'>query</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>has_hair</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='kw'>true</span>
+<span class='id first_query'>first_query</span><span class='period'>.</span><span class='id collect'>collect</span> <span class='lbrace'>{</span><span class='op'>|</span><span class='id c'>c</span><span class='op'>|</span> <span class='id c'>c</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>species</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span><span class='rbrace'>}</span>  <span class='comment'>#=&gt; ['Human', 'Centauri'] 
+</span>
+<span class='id second_query'>second_query</span> <span class='op'>=</span> <span class='id first_query'>first_query</span><span class='period'>.</span><span class='id query'>query</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>sex</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>female</span><span class='tstring_end'>'</span></span>
+<span class='id second_query'>second_query</span><span class='period'>.</span><span class='id collect'>collect</span> <span class='lbrace'>{</span><span class='op'>|</span><span class='id c'>c</span><span class='op'>|</span> <span class='id c'>c</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>species</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span><span class='rbrace'>}</span>  <span class='comment'>#=&gt; ['Human']  (Centauri women are bald)
+</span>                                         <span class='comment'>#              (includes post-season-2 Delenn as a technicality)
+</span></pre>
+
+<h3>Retrieval</h3>
+
+<p>The Query object is a self-contained capsule of data -- it contains both the question (via its initialization parameters) and the answers (via accessors).  For example:</p>
+
+<pre class="code"><span class='id query'>query</span> <span class='op'>=</span> <span class='const'>Query</span><span class='period'>.</span><span class='id new'>new</span> <span class='id db'>db</span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>musicians</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>band</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>The Beatles</span><span class='tstring_end'>'</span></span>
+<span class='id query'>query</span><span class='period'>.</span><span class='id first'>first</span>  <span class='comment'>#=&gt; &lt;Document&gt; {'_id' =&gt; [...], 'name' =&gt; 'John Lennon', ...}
+</span><span class='id query'>query</span><span class='period'>.</span><span class='id next'>next</span>   <span class='comment'>#=&gt; &lt;Document&gt; {'_id' =&gt; [...], 'name' =&gt; 'Paul McCartney', ...}
+</span><span class='id query'>query</span><span class='lbracket'>[</span><span class='int'>2</span><span class='rbracket'>]</span>     <span class='comment'>#=&gt; &lt;Document&gt; {'_id' =&gt; [...], 'name' =&gt; 'Ringo Starr', ...}
+</span><span class='id query'>query</span><span class='period'>.</span><span class='id any?'>any?</span> <span class='lbrace'>{</span><span class='op'>|</span><span class='id beatle'>beatle</span><span class='op'>|</span> <span class='id beatle'>beatle</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span> <span class='op'>==</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Yoko Ono</span><span class='tstring_end'>'</span></span><span class='rbrace'>}</span>  <span class='comment'>#=&gt; false
+</span></pre>
+
+<p>Each item returned is a Document object (see below).  The interesting Query methods to get to them are summarized below; most of the other access behavior comes from the standard Enumerable mixin:</p>
+
+<ul>
+<li><code>[]</code> - Returns the Document at the given index. If the data retrieval hasn't gotten that far yet, the method will block until it does. (<em>Note:</em> Don't make the mistake of confusing Queries for Arrays just because of this bracket thingy. This is not duck typing; most other array methods won't work.)</li>
+<li><code>.at</code> - A non-blocking accessor. Accepts an index like <code>[]</code> and a block of code, and will pass the document to the block upon retrieval. The return value is a proc that will return <em>false</em> when called if the code has not yet been executed, <em>true</em> if it has been, and raise any exceptions that arise during execution.</li>
+<li><code>.get</code> - Returns a document with a specified <em>'_id'</em>.  Faster than the <code>[]</code> index accessor if you know what you're looking for.  Non-blocking; if the specified document has not been retrieved for this query, it will simply return <em>nil.</em></li>
+<li><code>.first</code> - Returns the first document of the result set. If the data retrieval hasn't pulled the first record yet, the method will block until it does. (Call <code>.ready?</code> beforehand to avoid this blocking.)</li>
+<li><code>.last</code> - Returns the last document in the result set.  This requires traversing the entire cursor, so if the data retrieval is not yet complete, the method will block until all records have been loaded. (Call <code>.complete?</code> beforehand to avoid this blocking.)</li>
+<li><code>.each</code> - Steps through the entire result set. When given a block of code, passes each document to it, and will wait synchronously until the entire run is completed. If no block is given, returns an Enumerator so that you can call <code>.next</code> and friends at your leisure.</li>
+<li><code>.each!</code> - An asynchronous form of <code>each</code> that runs the provided block on each document in the EventMachine loop. Returns a proc that wil return <em>false</em> if the iteration is not yet complete, <em>true</em> if it is complete, and raise any exceptions that arise during execution.</li>
+<li><code>.size</code> - Returns the <em>current</em> number of documents that have been loaded. See <em>Size vs. Count</em> below.</li>
+<li><code>.total_size</code> - Loads the complete record set, then returns the final number of documents. See <em>Size vs. Count</em> below.</li>
+<li><code>.count</code> - Returns the number of documents in the query as reported by MongoDB. Will likely block for a short period unless the <strong>:count</strong> option is set upon initialization. See <em>Size vs. Count</em> below.</li>
+<li><code>.ready?</code> - Returns <em>true</em> if the first document in the result set has been loaded.</li>
+<li><code>.complete?</code> - Returns <em>true</em> if every record in the result set has been loaded.</li>
+<li><code>.has?</code> - Takes an index and returns <em>true</em> if the record at that position in the result set has been loaded.</li>
+</ul>
+
+
+<p>All of these methods are thread-safe and as consistent as MongoDB will allow them to be. The actual cursor is a hidden property owned by the database object, so that it can be explicitly closed if the query is garbage collected before completion.</p>
+
+<h4>Lookahead</h4>
+
+<p>The two hazards of traversing a large query in MongoDB are memory usage and speed.  If space and time weren't issues, we'd load every record into an array immediately for full random access.  In the real world this is often practical for smallish result sets, but a Ruby array of millions or billions of documents would bring your application to its knees.  It's also not always necessary.  Some use cases require random access, but sometimes you just want to step through each record once and be done with it.</p>
+
+<p>Crunch provides two facilities to balance these constraints.  The first is the <em>lookahead</em> system.  Mongo cursors deliver documents in batches.  (The default is 100, but this can be configured with the <strong>:batch</strong> option.)  Crunch tries to stay a little ahead of your document access by making <code>GETMORE</code> calls to the server for the next batch before it's needed.  By default it runs one batch ahead, so the flow of data runs something like this:</p>
 
 <ol>
-<li>Methods that default to synchronous can be called with the bang modifier, e.g. <code>.each!</code> or <code>.first!</code> or <code>.select!</code> and so forth. This will return a Deferrable object that you can monitor or ignore as you see fit. When the <code>.deferred_status</code> is <em>:succeeded</em>, the retrieval is done. Any blocks passed will be run as callbacks after the data is there.</li>
-<li>The <code>[]</code> accessor method can also be passed a block, e.g.: <code>my_query[21] {|doc| do_something}</code>. This will act like the bang form described above, with the block attached as a callback to a deferrable Document or array of Documents.</li>
-<li>You can globally set <code>Crunch.synchronous = false</code> on application initialization, before the Database is instantiated. All synchronous methods will then act like their bang forms described above.</li>
-<li>You can initialize the Database or Query with the <code>:synchronous =&gt; false</code> option. All synchronous methods will then act like their bang forms described above.</li>
-<li>You can <em>temporarily</em> set specific operations as asynchronous by passing them as a block to the <code>.asynchronous</code> method: <code>my_group.asynchronous do ... end</code>.</li>
+<li>The Query fires a message off to the server as soon as it's created. We're using EventMachine, so nothing else happens until the server responds.</li>
+<li>The server's reply contains a cursor ID and the first 100 documents.  The Query parses these records in the background and stores them in an internal array, where they wait for your application to read them.</li>
+<li>As soon as document #1 is accessed -- or any of them -- the Query requests the next batch (documents 101 to 200). When the batch is received, they are silently added to the array. Ideally this process will be complete before you need them.</li>
+<li>When document #101 or later is accessed, the Query requests the <em>next</em> batch (201 to 300) and processes them.</li>
+<li>Rinse, repeat.</li>
 </ol>
 
 
-<p>Likewise, if global options are set to be asynchronous, you can still make some actions synchronous with the <code>:synchronous =&gt; true</code> initialization option or by wrapping them in <code>.synchronous</code> blocks.</p></div></div>
+<p>If running a hundred documents ahead isn't enough (perhaps because your code's too fast) you can set a higher integer value for the <strong>:lookahead</strong> option on query creation.  A value of 2 would try to stay <em>two</em> batches ahead of your data access, et cetera.  Low values will help limit memory usage when combined with no or weak retention (see below), as Crunch will only need to reserve memory for a few hundred records at a time.</p>
+
+<p>The <strong>:lookahead</strong> option also accepts two special non-integer values.  The <em>:none</em> value disables advance retrieval; no batch will be requested until there is an access attempt on one of its documents.  This usually means more waiting, but may reduce network traffic if you aren't even sure you'll need the data.</p>
+
+<p>The <em>:all</em> value is a 'greedy' lookahead -- it will request and store all documents from the result set as quickly as it can, regardless of data access.  This minimizes synchronous waiting, but can also cause massive memory allocations and freeze-ups if the result set is unreasonably large.</p>
+
+<h4>Retention</h4>
+
+<p>The other facility for managing memory is the <em>retention</em> system.  Every document retrieved will be held in memory until it is accessed.  What happens to it <em>after</em> access can be configured for your application's needs by using the <strong>:retain</strong> option.</p>
+
+<p>A <strong>:retain</strong> value of <em>:all</em> will act pretty much like a standard array.  The query will hold onto every document, and no memory will be released until the query itself goes out of scope and is garbage collected.  Use this option if you expect heavy random access or if you need to iterate through the same results more than once.</p>
+
+<p>A value of <em>:none</em> will retain each document until it is accessed, and then clear it by setting the internal array element to <em>nil.</em>  You will be unable to access documents more than once unless you store them someplace outside the Query object.  This can be very memory-efficient when combined with a low <strong>:lookahead</strong> value. Use this option if you expect to iterate through the result set exactly once.  (It's set by default when you pass a block to the query constructor.)</p>
+
+<p>The default behavior is what we lovingly call <em>semi-weak retention</em>.  Crunch will attempt to balance random access and memory efficiency by remembering <em>some</em> documents and providing fallback retrieval for the rest.  You enable this behavior by setting <strong>:retain</strong> to a positive integer (the default is 10,000).  If your result set is smaller than this, you'll be able to iterate or access any element as often as you want.  If you access more documents than the <strong>:retain</strong> size, the <em>earliest</em> documents you accessed will become eligible for garbage collection.  Accessing a deleted document again will retrieve it from the MongoDB server with a single-document query.  Your application will block, of course, while it's retrieved.</p>
+
+<p>The details of this retention mechanism are complex, involving weak references and LRU queues; we won't dive into them here.  What matters is that repeated access or iteration <em>will always work</em>, even on the largest result sets, but once you exceed a certain size it may become horribly, horribly slow.  You'll revert to retrieving each document from the server again one at a time.  It could also break the query's immutability model, because a document retrieved a second time might have changed.  We pay these prices to keep your memory usage from exploding.</p>
+
+<p>In summary, some rules of thumb:</p>
+
+<ul>
+<li>If your expected number of documents from a query is low to moderate (less than 10,000), don't worry about the retention system.  Things will Just Work.</li>
+<li>If you expect a large number of documents but will only need to look at each one once, use <strong>:retain => :none</strong>.</li>
+<li>If you expect a large number of documents and will need to access them randomly and repeatedly, either use <strong>:retain => :all</strong> or assign them to your own variables.</li>
+<li>If you expect a large number of documents and will need to iterate through them in order multiple times, either use <strong>:retain => :all</strong> or clone the query and run it again.  (Querying again is a better idea if you can handle the data possibly changing.)</li>
+</ul>
+
+
+<h4>Size vs. Count</h4>
+
+<p>Here's a quirk of MongoDB that'll drive some SQL people nuts: it isn't consistent.  There's no transactional isolation.  If relevant documents are added, deleted, or updated while your query is running, you <em>might</em> see the changes and you might not.  Crunch's internal storage avoids the rare edge case of getting the same document twice (the earliest version is canonical), but it's still impossible to know beforehand exactly how many documents you'll get or how fresh they'll be if they keep changing.  If this is a deal-breaker for you, Mongo's likely the wrong database.</p>
+
+<p>Crunch provides two ways of telling you how many records you have.  The <code>.size</code> method returns the number of documents retrieved so far.  Thus, the number will keep changing until the record set is fully retrieved.  A synchronous <code>.total_size</code> method provides the final number by calling <code>.last</code> and waiting -- providing accuracy at the expense of time and memory.</p>
+
+<p>The <code>.count</code> method uses a MongoDB server command to calculate the number of documents returned by the query.  It requires a separate round trip and is therefore synchronous, but you can save time by setting <strong>:count => true</strong> on query creation (which requests the count <em>before</em> the query itself).  The <code>.count</code> method offers the strong advantage of giving you a number without having to retrieve any documents; however, it is not guaranteed to be accurate.  Changes to the data could raise or lower the number of documents returned by the query, so it's unsafe to rely on this number except for approximate scaling or progress purposes.</p>
+
+<h3>Updating</h3>
+
+<p>Queries have an <code>.update</code> method that takes a hash of atomic change operators:</p>
+
+<pre class="code"><span class='id my_query'>my_query</span><span class='period'>.</span><span class='id update'>update</span> <span class='label'>set:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>foo</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>bar</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>zoo</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>zar</span><span class='tstring_end'>'</span></span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='label'>inc:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>looky</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='int'>1</span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='label'>addToSet:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>dwarves</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Grumpy</span><span class='tstring_end'>'</span></span><span class='rbrace'>}</span>
+</pre>
+
+<p>This is really just a shortcut for convenience; it passes things along to its Collection object's <code>.update</code> method along with its own query conditions.  It takes the same options and returns the same way.</p>
+
+<p>Likewise, there's a <code>.delete</code> method that shortcuts to the Collection, instructing it to remove any records matching the query's conditions.</p>
+
+<p>Remember that the Query itself is <em>immutable</em> -- you won't see any changes reflected in its own data, but rather in subsequent queries. Don't get tripped up by this.</p>
+
+<h3>Options</h3>
+
+<p>Because Queries are immutable, all options must be passed at initialization.  Only the <strong>collection</strong> parameter is required; a query without a hash simply returns the entire collection.</p>
+
+<p>The options hash may contain both search conditions and defined options, mingled interchangeably.  Known options are removed first, and then any key that the Query class doesn't recognize as an option is passed to MongoDB as a search condition.  To avoid confusion and name collisions, we <em>strongly</em> suggest using strings for search conditions (all options are symbols), or else use the explicit <strong>:conditions</strong> option to separate them:</p>
+
+<pre class="code"><span class='id highways'>highways</span> <span class='op'>=</span> <span class='id db'>db</span><span class='period'>.</span><span class='id collection'>collection</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>roads</span><span class='tstring_end'>'</span></span>
+<span class='id highways'>highways</span><span class='period'>.</span><span class='id query'>query</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>limit</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='int'>70</span><span class='comma'>,</span> <span class='symbol'>:limit</span> <span class='op'>=&gt;</span> <span class='int'>5</span>           <span class='comment'># Returns the first 5 roads with a speed limit of 70
+</span><span class='id highways'>highways</span><span class='period'>.</span><span class='id query'>query</span> <span class='label'>conditions:</span> <span class='lbrace'>{</span><span class='label'>limit:</span> <span class='int'>70</span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='label'>limit:</span> <span class='int'>5</span>    <span class='comment'># The same (using Ruby 1.9 hash syntax)
+</span></pre>
+
+<h4>MongoDB Options</h4>
+
+<p>The following options are defined by the MongoDB server and passed along in the query message:</p>
+
+<ul>
+<li><strong>:conditions</strong> <em>(Hash)</em> Explicit search conditions. See above.</li>
+<li><strong>:fields</strong> <em>(Array)</em> Only return these document fields.  (<em>'_id'</em> is always included.)</li>
+<li><strong>:limit</strong> <em>(Integer)</em> Return at most <em>N</em> matching documents.</li>
+<li><strong>:skip</strong> <em>(Integer)</em> Start at the <em>N+1</em>th matching document.</li>
+<li><strong>:sort</strong> <em>(String, Array or Hash)</em> See below.</li>
+</ul>
+
+
+<p>Sorting is as simple or complex as you want it to be.  A single string means to sort on that key in ascending (default or "natural") order.  An array can be used to specify several sort keys in order.  Each element can be a simple string (again implying ascending order) or a two-element array of the key name and direction:</p>
+
+<pre class="code">sort: ['last_name', ['age', -1], ['height', :up]]   # You can use :up and :down in place of 1 and -1
+</pre>
+
+<p>For a complex sort order like this, it's cleaner to use a hash. Hashes in Ruby 1.9 are ordered, so the sort priority is retained:</p>
+
+<pre class="code">sort: {'last_name' =&gt; :up, 'age' =&gt; :down, 'height' =&gt; :up}
+</pre>
+
+<h4>Retrieval Options</h4>
+
+<p>The following options are defined by Crunch and influence when and how the query pulls data.  See the 'Retrieval' section below or the documentation for more details.</p>
+
+<ul>
+<li><strong>:run</strong> <em>(Boolean)</em> If false, do <em>not</em> execute the query until the <code>run</code> method is called or data is read. Useful if you're setting up a base query for later execution or modification.</li>
+<li><strong>:batch</strong> <em>(Integer)</em> Return <em>N</em> documents from the cursor per request. Defaults to 100.</li>
+<li><strong>:lookahead</strong> <em>(Integer, :none, or :all)</em> Load data <em>N</em> batches ahead of data access. Defaults to 1.</li>
+<li><strong>:retain</strong> <em>(Integer, :none, or :all)</em> Whether to keep document references after access. Defaults to 10,000.</li>
+<li><strong>:count</strong> <em>(Boolean)</em> Retrieve the document count for this query in a separate request. Saves time if the <code>.count</code> method is called later. Defaults to false.</li>
+</ul>
+
+
+<h4>Blocks and Block Options</h4>
+
+<p>Hard-core asynchronists can skip in-line interaction with the Query entirely and specify callbacks to operate on the data in the EM loop.  If a block is passed to <code>Query.new</code> or any of the various <code>.query</code> methods, it is automatically called by EventMachine on each document in the result set in turn:</p>
+
+<pre class="code"><span class='id cartoon_characters'>cartoon_characters</span><span class='period'>.</span><span class='id query'>query</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>type</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Care Bear</span><span class='tstring_end'>'</span></span> <span class='kw'>do</span> <span class='op'>|</span><span class='id bear'>bear</span><span class='op'>|</span>
+    <span class='id puts'>puts</span> <span class='id bear'>bear</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span> <span class='op'>+</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>: </span><span class='tstring_end'>'</span></span> <span class='op'>+</span> <span class='id bear'>bear</span><span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>cheesy_symbol</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span>
+<span class='kw'>end</span>
+</pre>
+
+<p>Passing a block implicitly sets <strong>:retain</strong> to <em>:none</em> for memory conservation, but you can override this if you want to hold onto the data for your own purposes.</p>
+
+<p>For more refinement, you can pass procs or lambdas to the following query options:</p>
+
+<ul>
+<li><strong>:on_each</strong> <em>(Proc)</em> Identical to the method block behavior described above.  Useful for clarity if you're also going to use any of the options below.</li>
+<li><strong>:on_error</strong> <em>(Proc)</em> Called on query failure. Passes the query and an exception object as parameters to the proc.</li>
+<li><strong>:on_ready</strong> <em>(Proc)</em> Called once the first document is loaded into memory. Passes the query as a parameter. Useful if you want to avoid synchronous delays while waiting for the server to process.</li>
+<li><strong>:on_completion</strong> <em>(Proc)</em> Called once the last document is loaded into memory. Implicitly sets <strong>:lookahead</strong> to <em>:all</em> unless overridden. Passes the query as a parameter. Useful if you want to do something to the entire enumerable <em>other than</em> stepping through it. (Don't use for huge result sets!)</li>
+<li><strong>:on_retrieval</strong> <em>(Proc)</em> Called after each cursor return.  Passes the query and the index of the first document in the relevant batch as parameters. Useful if you want to display progress or avoid synchronous delays from the network.</li>
+</ul>
+
+
+<h2>Collection</h2>
+
+<p>The <strong>Crunch::Collection</strong> class is the hook that data itself hangs from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can be treated as a Query, and the documents within it can be iterated or accessed.</p>
+
+<p><strong>NOTE:</strong> Not every Collection instance method is described in this section. The <code>.get</code> and <code>.create</code> methods are described in the <strong>Crunch::Document</strong> section because they return single Document objects. And the <code>.prior</code>, <code>.post</code>, <code>.push</code> and <code>.pop</code> methods are described in the <strong>Finding and Modifying</strong> section because they require some explanation.</p>
+
+<h3>Creation</h3>
+
+<p>Like Database objects, Collection objects use the <em>singleton</em> pattern.  A particular named collection in a particular database will have <em>one</em> object representing it.  The explicit way to create this object is with the Database's <code>.collection</code> method:</p>
+
+<pre class="code"><span class='id collection'>collection</span> <span class='op'>=</span> <span class='id my_database'>my_database</span><span class='period'>.</span><span class='id collection'>collection</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>characters</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>count:</span> <span class='kw'>true</span><span class='comma'>,</span> <span class='label'>run:</span> <span class='kw'>true</span><span class='comma'>,</span> <span class='label'>refresh:</span> <span class='int'>60</span>
+</pre>
+
+<p>The Collection may also be created at the first reference to its name within a Query or Document constructor.  Once created, any further references or calls to <code>.collection</code> will return the same object again, and any options will alter the Collection's properties.  (Unlike Documents or Queries, Collections are <em>not</em> immutable.)</p>
+
+<h3>Implicit Query</h3>
+
+<p>It's a very common use case to access or iterate through all the documents in a collection.  Creating a separate Query object with no search conditions is simple enough, but it's one more object for your application to manage.  Crunch simplifies things by allowing each Collection object to have an <em>implicit query</em>, and exposing all of the query's methods via delegation:</p>
+
+<pre class="code"><span class='id collection'>collection</span> <span class='op'>=</span> <span class='id my_database'>my_database</span><span class='period'>.</span><span class='id collection'>collection</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>characters</span><span class='tstring_end'>'</span></span>
+<span class='id collection'>collection</span><span class='period'>.</span><span class='id ready?'>ready?</span> <span class='comment'>#=&gt; false  (The query won't run until the first data access)
+</span><span class='id collection'>collection</span><span class='period'>.</span><span class='id first'>first</span>  <span class='comment'>#=&gt; {'_id' =&gt; [...], 'name' =&gt; 'John Sheridan', 'species' =&gt; 'Human', 'messianic' =&gt; true, ...}
+</span><span class='id collection'>collection</span><span class='lbracket'>[</span><span class='int'>5</span><span class='rbracket'>]</span>     <span class='comment'>#=&gt; {'_id' =&gt; [...], 'name' =&gt; 'Susan Ivanova', 'species' =&gt; 'Human', 'is_god' =&gt; true, ...}
+</span></pre>
+
+<p>Unlike ordinary queries, the implicit query's <strong>:run</strong> value defaults to <em>false</em>.  This means that the query won't actually be executed until the first time it's needed.  This is sensible, since it's very probable you won't use it at all, but you can override it to <em>true</em> if you want data to be available shortly after the Collection is created.</p>
+
+<p>You can also <em>refresh</em> the implicit query to bring the Collection's contents up to date.  This works in practice by replacing the old query with a new one.  You can trigger it manually with the <code>.refresh!</code> method, or you can set the <strong>:refresh</strong> option or <code>.refresh</code> attribute to a positive integer value.  This produces an EventMachine periodic timer that replaces the implicit query with a new one every <em>N</em> seconds.  (It's probably a bad idea to override the <strong>:run</strong> option to <em>true</em> for a periodic timer.)</p>
+
+<p>If you decide to use periodic refreshes, please keep the consequences in mind.  It means documents and their order <em>can and will</em> change in the background; so calling, say, <code>collection[5]</code> could return a different document between one call and the next.  Don't try to manually iterate through the records using their indexes, because the set of things you're looking at could change at any time.  Enumerators and code blocks are safe, however; they'll continue to refer to their original Query object and its contents even after the Collection has dropped it from scope.</p>
+
+<p>Confused?  Don't overthink it.  If all this implicit delegate stuff seems too gonzo, you can forget the whole idea and get a standalone Query object representing the entire collection:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id query'>query</span>
+</pre>
+
+<h3>Inserting</h3>
+
+<p>Inserting a single document is very simple:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id insert'>insert</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>G'Kar</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>species</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Narn</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>hair</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='kw'>false</span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>paraphrases</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Socrates</span><span class='tstring_end'>'</span></span>
+</pre>
+
+<p>You can pass a Fieldset object or a hash (which will be implicitly converted to a Fieldset).  If you don't specify an <em>'_id'</em> field, Crunch will create one before sending the document to the server.  The <em>'_id'</em> is also the return value of the <code>.insert</code> method so that you can retrieve the document or link to it as needed.</p>
+
+<p>You can also insert multiple documents at once:</p>
+
+<pre class="code">collection.insert {'name' =&gt; 'Londo Mollari'}, {'name' =&gt; 'Vir Kotto'}
+</pre>
+
+<p>The return value in this case is an array of the documents' <em>'_id'</em> values.</p>
+
+<h4>Safety</h4>
+
+<p>The <code>.insert</code> method respects the value of the <code>.safe</code> attribute at the module, Database, or Collection levels, or via the <strong>:safe</strong> option to the method call:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id insert'>insert</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Morden</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>safe:</span> <span class='kw'>true</span>      <span class='comment'># (Irony.)
+</span></pre>
+
+<p>If safety is <em>false</em> (the default) the method will return immediately, leaving EventMachine to handle the actual <em>'INSERT'</em> message in the background.  If safety is <em>true</em> the method becomes synchronous, and blocks until the insert is sent and a <em>getLastError</em> request has been answered.  If there are no errors, the <em>'_id'</em> value(s) will eventually be returned as described above.  If an error occurs, a <strong>Crunch::IndexError</strong> exception will be raised with the details.</p>
+
+<h3>Deleting</h3>
+
+<p>Unsurprisingly, deleting looks a lot like inserting:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id delete'>delete</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>role</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>redshirt</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>multi:</span> <span class='kw'>false</span><span class='comma'>,</span> <span class='label'>safe:</span> <span class='kw'>true</span>
+</pre>
+
+<p>The main hash (i.e., everything except options) represents the search conditions specifying which documents to delete. If no conditions are given, every document in the collection will be deleted. (Caveat applicator!)</p>
+
+<p>The return value is not meaningful in 'unsafe' mode. If called with the <strong>:safe</strong> option it will return the number of documents deleted, or a <strong>Crunch::DeleteError</strong> exception if an error occurs.</p>
+
+<p>Options:</p>
+
+<ul>
+<li><strong>:multi</strong> <em>(Boolean)</em> - if <em>true</em>, will delete every document matching the conditions. If <em>false</em>, will only delete the first document found. Defaults to <em>true</em>. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)</li>
+<li><strong>:safe</strong> <em>(Boolean)</em> - see above.</li>
+</ul>
+
+
+<h3>Updating</h3>
+
+<p>Updating documents looks like querying on them for the most part:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id update'>update</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>species</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Vorlon</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>set:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>religious_iconography</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='kw'>true</span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='label'>multi:</span> <span class='kw'>true</span><span class='comma'>,</span> <span class='label'>upsert:</span> <span class='kw'>false</span>
+</pre>
+
+<p>The main hash (i.e., everything except options) represents the search conditions specifying which documents to update. If no conditions are given, the entire collection will be updated. The update values are passed as options.</p>
+
+<p>The return value is not meaningful in 'unsafe' mode. If called with the <strong>:safe</strong> option it will return the number of documents updated, or a <strong>Crunch::UpdateError</strong> exception if an error occurs.</p>
+
+<h4>Control Options</h4>
+
+<p>The following options are simple flags controlling MongoDB's behavior:</p>
+
+<ul>
+<li><strong>:multi</strong> <em>(Boolean)</em> - if <em>true</em>, will update every document matching the <strong>:query</strong> conditions.  If <em>false</em>, will only update the first document found. Defaults to <em>true</em>. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)</li>
+<li><strong>:upsert</strong> <em>(Boolean)</em> - if <em>true</em>, will create a new document matching the <strong>:query</strong> conditions if no matching documents are found. Defaults to <em>false</em>. (Also see the <code>.push</code> method, which will return the document itself.)</li>
+<li><strong>:safe</strong> <em>(Boolean)</em> - see above.</li>
+</ul>
+
+
+<h4>Update Options</h4>
+
+<p>For more information on all of the following, see the <a href="http://www.mongodb.org/display/DOCS/Updating">official MongoDB documentation</a>:</p>
+
+<ul>
+<li><strong>:document</strong> <em>(Hash, Fieldset)</em> - replace the entirety of a single matching document with the given fields. Implicitly sets <strong>:multi</strong> to <em>false</em> (and will throw a <strong>Crunch::UpdateError</strong> if you try to override it). Rarely useful outside the traditional <code>Document#save</code> context.</li>
+<li><strong>:set</strong> <em>(Hash, Fieldset)</em> - sets the given fields to the given values.</li>
+<li><strong>:unset</strong> <em>(String, Symbol, Array)</em> - takes a field name or a list of names and removes each one.</li>
+<li><strong>:inc</strong> <em>(String, Symbol, Array, Hash, Fieldset)</em> - if given a hash or fieldset, increments each key by each value. If given a field name or list of names, increments by an implied value of 1.</li>
+<li><strong>:push</strong> <em>(Hash, Fieldset)</em> - appends the given values to the arrays named by the given keys.</li>
+<li><strong>:pushAll</strong> <em>(Hash, Fieldset)</em> - like <strong>:push</strong>, but with arrays of values. See the Mongo documentation.</li>
+<li><strong>:addToSet</strong> <em>(Hash, Fieldset)</em> - appends the given values to the given arrays <em>if</em> they don't already exist.</li>
+<li><strong>:addAllToSet</strong> <em>(Hash, Fieldset)</em> - like <strong>:addToSet</strong>, but with arrays of values. (<em>Custom:</em> does an implied <code>$each</code>.)</li>
+<li><strong>:pop</strong> <em>(String, Symbol, Array, Hash)</em> - given an array name or a list of arrays, removes the last element from each. Given a hash, removes the last element for values of <em>1</em> or <em>:last</em> or the first element for values of <em>-1</em> or <em>:first</em>. See the Mongo documentation if you need to mix 'last' and 'first' behavior, or use the next two bullet points.</li>
+<li><strong>:pop_last</strong> <em>(String, Symbol, Array)</em> - removes the last element from each array name or list of arrays. (<em>Custom:</em> syntactic sugar for <strong>:pop</strong>.)</li>
+<li><strong>:pop_first</strong> <em>(String, Symbol, Array)</em> - removes the first element from each array name or list of arrays. (<em>Custom:</em> syntactic sugar for <strong>:pop</strong>.)</li>
+<li><strong>:pull</strong> <em>(Hash, Fieldset)</em> - removes the given values from the arrays named by the given keys.</li>
+<li><strong>:pullAll</strong> <em>(Hash, Fieldset)</em> - like <strong>:pull</strong>, but with arrays of values. See the Mongo documentation.</li>
+<li><strong>:rename</strong> <em>(Hash, Fieldset)</em> - changes the given field names to the given values.</li>
+<li><strong>:bit</strong> <em>(Hash, Fieldset)</em> - performs the bitwise updates from the values on the given fields. See the Mongo documentation.</li>
+</ul>
+
+
+<h2>Document</h2>
+
+<p>The <strong>Crunch::Document</strong> class is the object you get when you iterate through a Query or Collection. It allows MongoDB documents to read, update, or delete themselves on an individual basis.  It's a subclass of <strong>Crunch::Fieldset</strong> with additional restrictions:</p>
+
+<ul>
+<li>It <em>must</em> be created from a BSON binary string or byte buffer.</li>
+<li>It <em>must</em> have a Collection attribute.</li>
+<li>It <em>must</em> have an <em>'_id'</em> key. (Also accessible by the <code>.id</code> attribute.)</li>
+</ul>
+
+
+<p>The assumption is that a Document represents a real entity <em>already existing</em> in the Mongo database. An unsaved document is not a Document. You shouldn't create these from scratch; the <code>.new</code> method is not part of the public API.</p>
+
+<h3>Retrieval</h3>
+
+<p>Documents are retrieved from Collections using the <code>.get</code> method.  You can pass the document's ID or a hash of query options:</p>
+
+<pre class="code"><span class='id id'>id</span> <span class='op'>=</span> <span class='const'>Crunch</span><span class='period'>.</span><span class='id oid'>oid</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>4c14f7943f165103d2000015</span><span class='tstring_end'>'</span></span>  <span class='comment'># Makes a BSON ObjectId from a string
+</span><span class='id doc'>doc</span> <span class='op'>=</span> <span class='id my_collection'>my_collection</span><span class='period'>.</span><span class='id get'>get</span> <span class='id id'>id</span>                  <span class='comment'># Retrieves the document with that ID
+</span><span class='id doc'>doc</span> <span class='op'>=</span> <span class='id my_collection'>my_collection</span><span class='period'>.</span><span class='id get'>get</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='regexp_beg'>/</span><span class='tstring_content'>Joe</span><span class='regexp_end'>/</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>age</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='lbrace'>{</span><span class='label'>lt:</span> <span class='int'>35</span><span class='rbrace'>}</span>  <span class='comment'># Returns the first matching document
+</span><span class='id doc'>doc</span> <span class='op'>=</span> <span class='id my_collection'>my_collection</span><span class='period'>.</span><span class='id get'>get</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='regexp_beg'>/</span><span class='tstring_content'>Joe</span><span class='regexp_end'>/</span></span><span class='comma'>,</span> <span class='label'>fields:</span> <span class='lbracket'>[</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>age</span><span class='tstring_end'>'</span></span><span class='rbracket'>]</span>  <span class='comment'># ...also limits fields returned
+</span></pre>
+
+<p>Behind the scenes, the <code>.get</code> method is simply creating a <strong>Crunch::Query</strong> and then returning the single record that comes back.  It accepts the <strong>:conditions</strong>, <strong>:fields</strong>, <strong>:skip</strong> and <strong>:sort</strong> options as described in Query.  It does <em>not</em> accept the <strong>:limit</strong> option; the query has an implicit limit of <em>-1</em> and you can't change it. (The negative number prevents the Mongo server from creating a cursor.)</p>
+
+<h4>Asynchronous Retrieval</h4>
+
+<p>Single-document retrievals are synchronous by default: the <code>.get</code> method will block until the data has been returned from MongoDB.  Failures will return an exception from the method.  To work with a single document without blocking, you can pass a block to be executed on the document once it's retrieved:</p>
+
+<pre class="code">status = my_collection.get 'first_name' =&gt; /Joe/ {|doc| do_something}
+</pre>
+
+<p>The return value is a proc that will return <em>false</em> when called if the code has not yet been executed, <em>true</em> if it has been, and raise any exceptions that arise during execution.</p>
+
+<h3>Creation</h3>
+
+<p>The roundabout way to make a new document is to run the <code>.insert</code> method of the appropriate Collection and then call <code>.get</code> to retrieve the returned document <em>'_id'</em>:</p>
+
+<pre class="code"><span class='id id'>id</span> <span class='op'>=</span> <span class='id dwarfs'>dwarfs</span><span class='period'>.</span><span class='id insert'>insert</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Sleepy</span><span class='tstring_end'>'</span></span>   <span class='comment'>#=&gt; BSON::ObjectId('4d5f25d5a2790e024b000001')
+</span><span class='id doc'>doc</span> <span class='op'>=</span> <span class='id dwarfs'>dwarfs</span><span class='period'>.</span><span class='id get'>get</span> <span class='id id'>id</span>     <span class='comment'>#=&gt; &lt;Document&gt; {'_id' =&gt; BSON::ObjectId('4d5f25d5a2790e024b000001'), 'name' =&gt; 'Sleepy'}
+</span></pre>
+
+<p>But hark!  There's a <code>.create</code> method on the collection that will do it in one (synchronous) step:</p>
+
+<pre class="code"><span class='id doc'>doc</span> <span class='op'>=</span> <span class='id dwarfs'>dwarfs</span><span class='period'>.</span><span class='id create'>create</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>Sleepy</span><span class='tstring_end'>'</span></span>    <span class='comment'>#=&gt; &lt;Document&gt; {'_id' =&gt; BSON::ObjectId('4d5f26d2a2790e024b000002'), 'name' =&gt; 'Sleepy'}
+</span></pre>
+
+<p>Technically, the <code>.create</code> method works using a <strong>findAndModify</strong> upsert with a newly generated ID rather than a separate insert and retrieval. But it works the same. Don't worry about it.</p>
+
+<h3>Updating</h3>
+
+<p>Documents are immutable, so you can't update the object itself. But you <em>can</em> send changes to the database for future generations:</p>
+
+<pre class="code"><span class='id doc'>doc</span><span class='period'>.</span><span class='id update'>update</span> <span class='label'>set:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>phasers</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>stun</span><span class='tstring_end'>'</span></span><span class='rbrace'>}</span><span class='comma'>,</span> <span class='label'>inc:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>cliches</span><span class='tstring_end'>'</span></span>
+</pre>
+
+<p>The method is just a shortcut to the <code>Collection#update</code> method, so all of the same update options apply.  (Including <strong>:document</strong>, if you want to replace the entire contents of the document.)  The <strong>:multi</strong> and <strong>:upsert</strong> options are not valid for obvious reasons.</p>
+
+<p>Like the Collection method, <code>.update</code> is asynchronous and does not return a meaningful value unless you set the <strong>:safe</strong> option to <em>true.</em></p>
+
+<h3>Deleting ###</h3>
+
+<p>You can tell the database to get rid of the document with a simple command (which is, again, a shortcut to the Collection method):</p>
+
+<pre class="code"><span class='id doc'>doc</span><span class='period'>.</span><span class='id delete'>delete</span>
+</pre>
+
+<p>There are no options except for <strong>:safe</strong>.  Like the Collection method, <code>.delete</code> is asynchronous and does not return a meaningful value unless you set the <strong>:safe</strong> option to <em>true.</em></p>
+
+<p>Will <code>.delete</code> cause any changes to the object you're looking at?  No.  Repeat after me: <strong><em>Documents are immutable.</em></strong>  You can turn the object into a ghost, but it will look just as solid.</p>
+
+<h2>Finding and Modifying</h2>
+
+<p>If you've read the MongoDB doc site (and you should), you've likely been flummoxed by the <strong>findAndModify</strong> command.  It's the database's most powerful and most confusing feature: it sweeps every aspect of CRUD into one übermethod, like a sort of addled Voltron. Here's my nutshell attempt to make sense of it:</p>
+
+<ol>
+<li>You can give it some query conditions. The <em>first</em> matching document in the collection, if any, is used for Step 2. (You can also create a new document if nothing matches.)</li>
+<li>You can change the document's contents, or delete it entirely.</li>
+<li>You'll receive the document, or a subset of its fields, <em>before or after</em> its contents were changed. You get to decide; you can't have both.</li>
+</ol>
+
+
+<p>It's the <em>before or after</em> part that causes brains to melt. By default it's <em>before</em> -- which is useful if, say, you're popping something off of an array field. But if you're adding new data or incrementing, you probably want the <em>after</em> version that includes your changes. In this author's opinion, putting both in one method was a mistake. It doesn't matter which one's the default; a Principle of Least Surprise violation is inevitable.</p>
+
+<p>Crunch resolves all this chaos by breaking <strong>findAndModify</strong>'s use cases into a few different methods. The <code>.create</code> method was already described in the <strong>Crunch::Document</strong> section above. (It's really just a special case of <code>.push</code>.) The rest are described below. They all share the following characteristics:</p>
+
+<ol>
+<li>They're instance methods of <strong>Crunch::Collection</strong>.</li>
+<li>They're semantically similar to the <code>Collection#update</code> method. They take the same query conditions and update options. (But not the <strong>:multi</strong>, <strong>:upsert</strong> or <strong>:safe</strong> options.)</li>
+<li>They're synchronous and return a Document if you don't give them a block.</li>
+<li>If you <em>do</em> give them a block, they're asynchronous and pass the document to the block. The return value is a proc that will return <em>false</em> when called if the code has not yet been executed, <em>true</em> if it has been, and raise any exceptions that arise during execution.</li>
+</ol>
+
+
+<h3>.push</h3>
+
+<p>This is the "upsert" variant of <strong>findAndModify</strong>:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id push'>push</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>John Sheridan</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='label'>push:</span> <span class='lbrace'>{</span><span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>places</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Z'ha'Dum</span><span class='tstring_end'>&quot;</span></span><span class='rbrace'>}</span>   <span class='comment'>#=&gt; &lt;Document&gt; {...}
+</span></pre>
+
+<p>The <code>.push</code> method looks for the first document in the collection matching the query conditions, and if found, applies the update options to it.  If a document is <em>not</em> found, it creates one based on the query conditions and then applies the update options.  Either way, the document is returned as it exists <em>after</em> the update.  (Insertions wouldn't make much sense otherwise.)</p>
+
+<p>Do not confuse the method name <code>.push</code> with the <strong>:push</strong> atomic update operation, which appends a value to an array field.  We've named this method <code>.push</code> because upserts can be useful in set- or stack-like operations, and because it goes well with the next method.</p>
+
+<h3>.pop</h3>
+
+<p>This is the "remove" variant of <strong>findAndModify</strong>:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id pop'>pop</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>role</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>redshirt</span><span class='tstring_end'>'</span></span>     <span class='comment'>#=&gt; &lt;Document&gt; {'name' =&gt; 'Security Guard #5', role =&gt; 'redshirt', ...}
+</span></pre>
+
+<p>The <code>.pop</code> method looks for the first document in the collection matching the query conditions, tells MongoDB to delete it, and returns the document that was just deleted. It returns <em>nil</em> if no document was found. The <em>before</em> mode of <strong>findAndModify</strong> is implied for obvious reasons.</p>
+
+<p>Do not confuse the method name <code>.pop</code> with the <strong>:pop</strong> atomic update operation, which removes an element from an array field (but doesn't return anything by itself).  We've named this method <code>.pop</code> because of its obvious usefulness in stack- or queue-like operations.  Without something like this <strong>findAndModify</strong> variant, it'd be very difficult to use a MongoDB collection reliably as a work queue.</p>
+
+<h3>.prior</h3>
+
+<p>This is the "return <em>before</em> update" variant of <strong>findAndModify</strong>:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id prior'>prior</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>John Sheridan</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>places</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Z'ha'Dum</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>deaths</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='int'>0</span><span class='comma'>,</span> <span class='label'>inc:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>deaths</span><span class='tstring_end'>'</span></span>
+    <span class='comment'>#=&gt; &lt;Document&gt; {'name' =&gt; 'John Sheridan', 'places' =&gt; [&quot;Babylon 5&quot;, &quot;Z'ha'Dum&quot;, ...], 'deaths' =&gt; 0, ...}
+</span></pre>
+
+<p>The <code>.prior</code> method looks for the first document in the collection matching the query conditions, retrieves it, and then applies the update options to it. The method returns <em>nil</em> if no match was found; otherwise, the document returned will contain the contents from <em>before</em> the update. This is often essential when using atomic updates that destroy data like <strong>:pop</strong> or <strong>:pull</strong> -- at least if you need to know what was removed.</p>
+
+<p>Do not confuse the method name <code>.prior</code> with Richard Pryor.</p>
+
+<h3>.post</h3>
+
+<p>This is the "return <em>after</em> update" variant of <strong>findAndModify</strong>:</p>
+
+<pre class="code"><span class='id collection'>collection</span><span class='period'>.</span><span class='id post'>post</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>name</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>John Sheridan</span><span class='tstring_end'>'</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>places</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Z'ha'Dum</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>deaths</span><span class='tstring_end'>'</span></span> <span class='op'>=&gt;</span> <span class='int'>0</span><span class='comma'>,</span> <span class='label'>inc:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>deaths</span><span class='tstring_end'>'</span></span>
+    <span class='comment'>#=&gt; &lt;Document&gt; {'name' =&gt; 'John Sheridan', 'places' =&gt; [&quot;Babylon 5&quot;, &quot;Z'ha'Dum&quot;, ...], 'deaths' =&gt; 1, ...}
+</span></pre>
+
+<p>The <code>.post</code> method looks for the first document in the collection matching the query conditions, applies the update options to it, and then retrieves it. The method returns <em>nil</em> if no match was found; otherwise, the document returned will contain the contents from <em>after</em> the update. This can be very useful for counter-type operations, or other cases where a transformation is occurring on existing data.</p>
+
+<p>Do not confuse the method name <code>.post</code> with the HTTP or REST sense of 'posting information.'  The implied meaning here is strictly temporal, and the <code>.post</code> method <em>only</em> updates existing records.  If you want to 'post' a new record, consider either the <code>.push</code> method (which is the same thing with the <em>upsert</em> option turned on) or the <code>.create</code> method (which always produces a new document).</p></div></div>
     
     <div id="footer">
-  Generated on Mon Jan 31 17:12:15 2011 by 
+  Generated on Sat Feb 26 01:24:19 2011 by 
   <a href="http://yardoc.org" title="Yay! A Ruby Documentation Tool" target="_parent">yard</a>
   0.6.4 (ruby-1.9.2).
 </div>

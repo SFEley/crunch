@@ -59,87 +59,11 @@
   
   
     <dt class="r1 last">Defined in:</dt>
-    <dd class="r1 last">lib/crunch/agent.rb<span class="defines">,<br />
-  lib/crunch.rb,<br /> lib/crunch/query.rb,<br /> lib/crunch/message.rb,<br /> lib/crunch/version.rb,<br /> lib/crunch/database.rb,<br /> lib/crunch/document.rb,<br /> lib/crunch/fieldset.rb,<br /> lib/crunch/recordset.rb,<br /> lib/crunch/collection.rb,<br /> lib/crunch/exceptions.rb,<br /> lib/crunch/connection.rb,<br /> lib/crunch/agents/query_agent.rb,<br /> lib/crunch/agents/document_agent.rb,<br /> lib/crunch/messages/query_message.rb,<br /> lib/crunch/messages/insert_message.rb,<br /> lib/crunch/messages/update_message.rb,<br /> lib/crunch/collections/command_collection.rb</span>
-</dd>
+    <dd class="r1 last">lib/crunch.rb</dd>
   
 </dl>
 <div class="clear"></div>
 
-<h2>Overview</h2><div class="docstring">
-  <div class="discussion">
-    <p>
-Defines a helper object that serves as an intermediary between Documents or
-Groups and the Database.  It creates a query to retrieve whatever
-data&#8217;s asked for and sends it to the Database, then sets up callbacks
-to receive the response. This is meant to be an abstract class; by itself
-it only does some header validation, but subclasses will parse the
-responses and pass them further up the callback chain. Agents are
-short-lived and only run a single query once.
-</p>
-<p>
-This separates concerns rather nicely. Documents that are prepopulated with
-data (say, from a Group) don&#8217;t have to worry about how to talk to the
-Database.  The Database doesn&#8217;t have to care whether it&#8217;s
-routing traffic for a document or a group.  And even the Agent object
-doesn&#8217;t have to keep explicit track of its creator; the creator can
-set its own callback and let the data fall into place with the magic of
-closures. (Closures are a bit like The Force, surrounding and penetrating
-all object data and binding it together. But without the midichlorians.)
-</p>
-
-
-  </div>
-</div>
-<div class="tags">
-  
-</div><h2>Defined Under Namespace</h2>
-<p class="children">
-   
-    
-      <strong class="modules">Modules:</strong> <span class='object_link'><a href="Crunch/Connection.html" title="Crunch::Connection (module)">Connection</a></span>
-    
-   
-    
-      <strong class="classes">Classes:</strong> <span class='object_link'><a href="Crunch/Agent.html" title="Crunch::Agent (class)">Agent</a></span>, <span class='object_link'><a href="Crunch/Collection.html" title="Crunch::Collection (class)">Collection</a></span>, <span class='object_link'><a href="Crunch/CommandCollection.html" title="Crunch::CommandCollection (class)">CommandCollection</a></span>, <span class='object_link'><a href="Crunch/CrunchError.html" title="Crunch::CrunchError (class)">CrunchError</a></span>, <span class='object_link'><a href="Crunch/Database.html" title="Crunch::Database (class)">Database</a></span>, <span class='object_link'><a href="Crunch/DatabaseError.html" title="Crunch::DatabaseError (class)">DatabaseError</a></span>, <span class='object_link'><a href="Crunch/Document.html" title="Crunch::Document (class)">Document</a></span>, <span class='object_link'><a href="Crunch/DocumentAgent.html" title="Crunch::DocumentAgent (class)">DocumentAgent</a></span>, <span class='object_link'><a href="Crunch/DocumentError.html" title="Crunch::DocumentError (class)">DocumentError</a></span>, <span class='object_link'><a href="Crunch/FetchError.html" title="Crunch::FetchError (class)">FetchError</a></span>, <span class='object_link'><a href="Crunch/Fieldset.html" title="Crunch::Fieldset (class)">Fieldset</a></span>, <span class='object_link'><a href="Crunch/FieldsetError.html" title="Crunch::FieldsetError (class)">FieldsetError</a></span>, <span class='object_link'><a href="Crunch/HeaderError.html" title="Crunch::HeaderError (class)">HeaderError</a></span>, <span class='object_link'><a href="Crunch/InsertMessage.html" title="Crunch::InsertMessage (class)">InsertMessage</a></span>, <span class='object_link'><a href="Crunch/Message.html" title="Crunch::Message (class)">Message</a></span>, <span class='object_link'><a href="Crunch/MessageError.html" title="Crunch::MessageError (class)">MessageError</a></span>, <span class='object_link'><a href="Crunch/Query.html" title="Crunch::Query (class)">Query</a></span>, <span class='object_link'><a href="Crunch/QueryAgent.html" title="Crunch::QueryAgent (class)">QueryAgent</a></span>, <span class='object_link'><a href="Crunch/QueryError.html" title="Crunch::QueryError (class)">QueryError</a></span>, <span class='object_link'><a href="Crunch/QueryMessage.html" title="Crunch::QueryMessage (class)">QueryMessage</a></span>, <span class='object_link'><a href="Crunch/Recordset.html" title="Crunch::Recordset (class)">Recordset</a></span>, <span class='object_link'><a href="Crunch/RecordsetError.html" title="Crunch::RecordsetError (class)">RecordsetError</a></span>, <span class='object_link'><a href="Crunch/ResponseError.html" title="Crunch::ResponseError (class)">ResponseError</a></span>, <span class='object_link'><a href="Crunch/TimeoutError.html" title="Crunch::TimeoutError (class)">TimeoutError</a></span>, <span class='object_link'><a href="Crunch/UpdateMessage.html" title="Crunch::UpdateMessage (class)">UpdateMessage</a></span>
-    
-  
-</p>
-
-  <h2>Constant Summary</h2>
-  
-    <dl class="constants">
-      
-        <dt id="VERSION-constant" class="">VERSION =
-          
-        </dt>
-        <dd><pre class="code"><span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>0.0.1</span><span class='tstring_end'>&quot;</span></span></pre></dd>
-      
-        <dt id="options-classvariable" class="">@@options =
-          <div class="docstring">
-  <div class="discussion">
-    <p>
-Global options
-</p>
-
-
-  </div>
-</div>
-<div class="tags">
-  
-</div>
-        </dt>
-        <dd><pre class="code"><span class='lbrace'>{</span>
-  <span class='label'>host:</span> <span class='tstring'><span class='tstring_beg'>'</span><span class='tstring_content'>localhost</span><span class='tstring_end'>'</span></span><span class='comma'>,</span>      <span class='comment'># Default host for MongoDB server
-</span>  <span class='label'>port:</span> <span class='int'>27017</span><span class='comma'>,</span>            <span class='comment'># Default port for MongoDB server
-</span>  <span class='label'>timeout:</span> <span class='int'>10</span><span class='comma'>,</span>            <span class='comment'># Database requests will error out after this many seconds
-</span>  <span class='label'>heartbeat:</span> <span class='int'>1</span><span class='comma'>,</span>           <span class='comment'># Frequency (in seconds) to check for timeouts and maintain connection counts
-</span>  <span class='label'>min_connections:</span> <span class='int'>1</span><span class='comma'>,</span>     <span class='comment'># Create more connections if we ever drop below this value
-</span>  <span class='label'>max_connections:</span> <span class='int'>10</span>     <span class='comment'># Never create more than this many connections
-</span><span class='rbrace'>}</span></pre></dd>
-      
-    </dl>
-  
 
 
 
@@ -168,30 +92,6 @@ Global options
 
   
     <span class="summary_desc"><div class='inline'></div></span>
-  
-</li>
-
-      
-        <li class="public ">
-  <span class="summary_signature">
-    
-      <a href="#options-class_method" title="options (class method)">+ (Object) <strong>options</strong> </a>
-    
-
-    
-  </span>
-  
-  
-  
-  
-  
-  
-
-  
-    <span class="summary_desc"><div class='inline'><p>
-The global options hash.
-</p>
-</div></span>
   
 </li>
 
@@ -316,16 +216,16 @@ An ObjectId in string form, e.g. &#8216;4c2b91d33f1651039f000002&#8217;
       <pre class="lines">
 
 
-67
-68
-69
-70
-71
-72
-73</pre>
+14
+15
+16
+17
+18
+19
+20</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/crunch.rb', line 67</span>
+      <pre class="code"><span class="info file"># File 'lib/crunch.rb', line 14</span>
 
 <span class='kw'>def</span> <span class='kw'>self</span><span class='period'>.</span><span class='id oid'>oid</span><span class='lparen'>(</span><span class='id val'>val</span><span class='op'>=</span><span class='kw'>nil</span><span class='rparen'>)</span>
   <span class='kw'>if</span> <span class='id val'>val</span><span class='period'>.</span><span class='id nil?'>nil?</span>
@@ -339,54 +239,12 @@ An ObjectId in string form, e.g. &#8216;4c2b91d33f1651039f000002&#8217;
 </table>
 </div>
     
-      <div class="method_details ">
-  <p class="signature " id="options-class_method">
-  
-    + (<tt>Object</tt>) <strong>options</strong> 
-  
-
-  
-</p><div class="docstring">
-  <div class="discussion">
-    <p>
-The global options hash. This is primarily defined as a convenience for
-other Crunch classes to inherit the options on initialization. If you want
-to change any of these options yourself, use one of the defined attribute
-methods.
-</p>
-
-
-  </div>
-</div>
-<div class="tags">
-  
-</div><table class="source_code">
-  <tr>
-    <td>
-      <pre class="lines">
-
-
-41
-42
-43</pre>
-    </td>
-    <td>
-      <pre class="code"><span class="info file"># File 'lib/crunch.rb', line 41</span>
-
-<span class='kw'>def</span> <span class='kw'>self</span><span class='period'>.</span><span class='id options'>options</span>
-  <span class='cvar'>@@options</span>
-<span class='kw'>end</span></pre>
-    </td>
-  </tr>
-</table>
-</div>
-    
   </div>
 
 </div>
     
     <div id="footer">
-  Generated on Mon Jan 31 17:12:15 2011 by 
+  Generated on Sat Feb 26 01:24:19 2011 by 
   <a href="http://yardoc.org" title="Yay! A Ruby Documentation Tool" target="_parent">yard</a>
   0.6.4 (ruby-1.9.2).
 </div>

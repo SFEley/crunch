@@ -10,8 +10,6 @@ Although it wraps the Mongo wire protocol, Crunch diverges conceptually from the
 
 Crunch presents a more object-driven layer over the same operations. At the highest level, there are four major classes to understand: the **Database**, the **Collection**, the **Query**, and the **Document**.  The **Fieldset** utility class (of which **Document** is a subclass) is used in place of hashes.  Any Crunch objects representing data are _immutable_ -- once created, they can't be changed. An intermediate level manages connections and BSON serialized messages conforming to Mongo's wire protocol, and EventMachine takes care of sending and receiving binary data from the server.
 
-![Class diagram](https://sfe_misc.s3.amazonaws.com/crunch_class_diagram.svg)
-
 Synchronous vs. Asynchronous
 ----------------------------
 Crunch's relationship with EventMachine can be summarized as follows:

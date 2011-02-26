@@ -1,17 +1,6 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
 describe Crunch do
-  describe "global options" do
-    it "have a default timeout" do
-      Crunch.timeout.should > 0
-    end
-    
-    it "can set the timeout" do
-      Crunch.timeout = 7.2
-      Crunch.timeout.should == 7.2
-    end
-  end
-
   describe "utility methods" do
     describe "- oid" do
       it "converts strings to BSON::ObjectIds" do
