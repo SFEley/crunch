@@ -23,9 +23,11 @@ module Crunch
     @@databases = {}
     @@mutex = Mutex.new   # Let's be threadsafe here, because the actual access into the
                           # @@databases hash does not happen in EventMachine.
+                          
+    
     
     attr_reader :name, :host, :port
-    attr_accessor :min_connections, :max_connections, :heartbeat
+    attr_accessor :min_connections, :max_connections, :heartbeat, :on_heartbeat
     
     # Singleton pattern -- make .new private and return an exception if called from outside
     class << self
@@ -53,12 +55,73 @@ module Crunch
         end
       end
     end
-
-    private
-      def initialize(options)
-        super
-        @name, @host, @port, @min_connections, @max_connections, @heartbeat = options.values_at :name, :host, :port, :min_connections, :max_connections, :heartbeat
+    
+    # The number of active connections to the MongoDB server. This is self-managed
+    # according to request load; see the #min_connections and #max_connections
+    # attributes to manage it.
+    # @return Integer
+    def connection_count
+      @connections_mutex.synchronize do
+        @connections.length
       end
+    end
+    
+    # The number of requests waiting in the queue to be send to the MongoDB server.
+    # If this is higher than the number of active connections, more connections will
+    # be created.
+    # @return Integer
+    def pending_count
+      @requests.size
+    end
+    
+    # Push a new request onto the request queue, to be processed by one of the
+    # available connections.  The object passed MUST be an instance of 
+    # Crunch::Request.  Returns the Database again so that requests can be 
+    # chained if necessary.
+    # @param Request request
+    # @return Database
+    def <<(request)
+      raise DatabaseError, "Requests passed via << must be subclasses of Crunch::Request" unless request.kind_of?(Crunch::Request)
+      request.begin
+      @requests.push request
+      self
+    end
+       
+    def perform_heartbeat
+      @on_heartbeat.call if @on_heartbeat
+    end
+    
+  
+  private
+    def initialize(options)
+      super
+      # Set all of our options in one fell swoop
+      options.each {|k,v| instance_variable_set "@#{k}".to_sym, v}
+            
+      # Initialize the connection pool and request queue
+      @connections = []
+      @connections_mutex = Mutex.new
+      @heartbeat_timer = nil
+      @requests = EM::Queue.new
+      perform_heartbeat = EM::Callback(self, :perform_heartbeat)
+      
+      # Start EventMachine in its own thread. If it's already running, 
+      # this will just pass the work to it and then come back.
+      Thread.new do
+        EventMachine.run do
+          min_connections.times {add_connection}
+          @heartbeat_timer = EM::PeriodicTimer.new(heartbeat, method(:perform_heartbeat))
+        end
+      end
+      
+      Thread.pass until connection_count >= min_connections
+    end
+
+    def add_connection
+      @connections_mutex.synchronize do
+        @connections << EM.connect(host, port)
+      end
+    end
 
 
   end
