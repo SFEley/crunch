@@ -146,6 +146,7 @@ module Crunch
       before(:each) do
         @beat_count = 0
         @this = Database.connect 'crunch_test', min_connections: 2, heartbeat: 0.01, on_heartbeat: ->{@beat_count += 1}
+        EM.set_quantum 10   # So we don't wait forever on our heartbeat calls
       end
       
       it "loads the minimum at startup" do
@@ -154,32 +155,53 @@ module Crunch
       
       it "stays at min_connections if the number of requests is < connection_count" do
         tick {@this << request}
-        sleep 0.2
+        sleep 0.05
         @this.connection_count.should == 2
       end
       
       it "stays at min_connections if the number of requests == connection_count" do
         tick {@this << request << request}
-        sleep 0.2
+        sleep 0.05
         @this.connection_count.should == 2
       end
       
       it "adds more connections if the number of requests > connection_count" do
-        tick {@this << request << request << request}
-        sleep 0.2
+        tick {3.times {@this << request}}
+        sleep 0.05
         @this.connection_count.should == 3
       end
       
+      it "adds new connections gradually" do
+        tick {8.times {@this << request}}
+        sleep 0.02
+        @this.connection_count.should be_within(2).of(3)
+        sleep 0.1
+        @this.connection_count.should == 8
+      end
+      
+      it "removes connections slowly" do
+        tick {5.times {@this << request}}
+        sleep 0.05
+        @this.connection_count.should == 5
+        5.times {@this.requests.pop {true}}
+        sleep 0.1
+        @this.connection_count.should == 5
+        sleep 0.2
+        @this.connection_count.should == 4
+        sleep 0.5
+        @this.connection_count.should == 2
+      end
+        
       it "can add other events to the heartbeat" do
         foo = false
         @this.on_heartbeat = ->{foo = true}
-        sleep 0.1
+        sleep 0.02
         foo.should == true
       end
         
       it "calls the heartbeat timer" do
-        sleep 0.2
-        @beat_count.should be_within(1).of(2)
+        sleep 0.03
+        @beat_count.should be_within(1.01).of(2)
       end
       
         

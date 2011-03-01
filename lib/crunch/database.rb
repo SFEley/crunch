@@ -26,7 +26,7 @@ module Crunch
                           
     
     
-    attr_reader :name, :host, :port
+    attr_reader :name, :host, :port, :requests
     attr_accessor :min_connections, :max_connections, :heartbeat, :on_heartbeat
     
     # Singleton pattern -- make .new private and return an exception if called from outside
@@ -87,9 +87,6 @@ module Crunch
       self
     end
        
-    def perform_heartbeat
-      @on_heartbeat.call if @on_heartbeat
-    end
     
   
   private
@@ -102,6 +99,7 @@ module Crunch
       @connections = []
       @connections_mutex = Mutex.new
       @heartbeat_timer = nil
+      @heartbeat_count = 0
       @requests = EM::Queue.new
       perform_heartbeat = EM::Callback(self, :perform_heartbeat)
       
@@ -120,9 +118,31 @@ module Crunch
     def add_connection
       @connections_mutex.synchronize do
         @connections << EM.connect(host, port)
+        @heartbeat_count = 0
+      end
+    end
+    
+    def remove_connection
+      # TODO: 'suicide' message to Connection module
+      @connections_mutex.synchronize do
+        @connections.shift
+        @heartbeat_count = 0
       end
     end
 
-
+    def perform_heartbeat
+      pc, cc = pending_count, connection_count
+      
+      if pc > cc        # We have more requests than connections!
+        add_connection
+      elsif pc < cc     # We have more connections than requests
+        remove_connection if (@heartbeat_count += 1) >= (cc**2) and cc > min_connections
+      else              # They even out
+        @heartbeat_count = 0
+      end
+      
+      @on_heartbeat.call if @on_heartbeat
+    end
+    
   end
 end
