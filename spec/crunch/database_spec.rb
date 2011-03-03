@@ -203,8 +203,6 @@ module Crunch
         sleep 0.03
         @beat_count.should be_within(1.01).of(2)
       end
-      
-        
     end
       
     after(:each) do

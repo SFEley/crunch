@@ -7,6 +7,7 @@ module Crunch
   autoload :Fieldset, 'crunch/fieldset'
   autoload :Database, 'crunch/database'
   autoload :Request, 'crunch/request'
+  autoload :Connection, 'crunch/connection'
   
   
   # Utility methods

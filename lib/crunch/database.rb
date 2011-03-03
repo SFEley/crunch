@@ -25,8 +25,7 @@ module Crunch
                           # @@databases hash does not happen in EventMachine.
                           
     
-    
-    attr_reader :name, :host, :port, :requests
+    attr_reader :name, :host, :port, :requests, :connections
     attr_accessor :min_connections, :max_connections, :heartbeat, :on_heartbeat
     
     # Singleton pattern -- make .new private and return an exception if called from outside
@@ -117,7 +116,7 @@ module Crunch
 
     def add_connection
       @connections_mutex.synchronize do
-        @connections << EM.connect(host, port)
+        @connections << EM.connect(host, port, Connection, self)
         @heartbeat_count = 0
       end
     end
@@ -133,11 +132,11 @@ module Crunch
     def perform_heartbeat
       pc, cc = pending_count, connection_count
       
-      if pc > cc        # We have more requests than connections!
+      if pc > cc                              # We have more requests than connections
         add_connection
-      elsif pc < cc     # We have more connections than requests
-        remove_connection if (@heartbeat_count += 1) >= (cc**2) and cc > min_connections
-      else              # They even out
+      elsif pc < cc and cc > min_connections  # We have more connections than requests
+        remove_connection if (@heartbeat_count += 1) >= (cc**2) 
+      else                                    # They even out
         @heartbeat_count = 0
       end
       
