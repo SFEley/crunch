@@ -3,13 +3,6 @@ require File.dirname(__FILE__) + '/../spec_helper'
 
 module Crunch
   describe Database do
-    # Stub class and utility method for it
-    class DummyRequest < Crunch::Request
-    end
-    
-    def request
-      DummyRequest.new
-    end
     
     describe ".connect method" do
       before(:each) do
@@ -121,7 +114,7 @@ module Crunch
       end
       
       it "can accept requests" do
-        tick {@this << request}
+        tick {@this << DummyRequest.new}
         @this.pending_count.should == 1
       end
       
@@ -130,14 +123,14 @@ module Crunch
       end
       
       it "sets the begin time of the request" do
-        r = request
+        r = DummyRequest.new
         r.began.should be_nil
         tick {@this << r}
         r.began.should be_within(1).of(Time.now)
       end
       
       it "can be chained" do
-        tick {@this << request << request}
+        tick {@this << DummyRequest.new << DummyRequest.new}
         @this.pending_count.should == 2
       end
     end
@@ -154,25 +147,25 @@ module Crunch
       end
       
       it "stays at min_connections if the number of requests is < connection_count" do
-        tick {@this << request}
+        tick {@this << DummyRequest.new}
         sleep 0.05
         @this.connection_count.should == 2
       end
       
       it "stays at min_connections if the number of requests == connection_count" do
-        tick {@this << request << request}
+        tick {@this << DummyRequest.new << DummyRequest.new}
         sleep 0.05
         @this.connection_count.should == 2
       end
       
       it "adds more connections if the number of requests > connection_count" do
-        tick {3.times {@this << request}}
+        tick {3.times {@this << DummyRequest.new}}
         sleep 0.05
         @this.connection_count.should == 3
       end
       
       it "adds new connections gradually" do
-        tick {8.times {@this << request}}
+        tick {8.times {@this << DummyRequest.new}}
         sleep 0.02
         @this.connection_count.should be_within(2).of(3)
         sleep 0.1
@@ -180,7 +173,7 @@ module Crunch
       end
       
       it "removes connections slowly" do
-        tick {5.times {@this << request}}
+        tick {5.times {@this << DummyRequest.new}}
         sleep 0.05
         @this.connection_count.should == 5
         5.times {@this.requests.pop {true}}

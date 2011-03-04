@@ -5,8 +5,10 @@ require 'rspec/autorun'
 require 'mocha'
 require 'mongo'  # For verification only!
 
-Dir.foreach(File.join(File.dirname(__FILE__), 'shared_examples')) do |filename|
-  require File.join('shared_examples', filename) if filename =~ /\.rb$/
+%w(support shared_examples).each do |dir|
+  Dir.foreach(File.join(File.dirname(__FILE__), dir)) do |filename|
+    require File.join(dir, filename) if filename =~ /\.rb$/
+  end
 end
 
 # Perform the requested action, but then don't come back until at least X EventMachine ticks have passed.

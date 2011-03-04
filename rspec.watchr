@@ -26,7 +26,6 @@ end
 
 
 # Give ourselves an out...
-Signal.trap('HUP') { system "rspec spec"  } # Ctrl-\
 Signal.trap('INT' ) { abort("\n") } # Ctrl-C
 
 # Having set all that up, let's run the whole suite just for starters.
