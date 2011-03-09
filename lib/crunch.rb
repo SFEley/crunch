@@ -53,34 +53,21 @@ module Crunch
     s
   end
   
-  # Returns an integer from the given little-endian binary string (which must be either
-  # 4 or 8 bytes in size).
+  # Returns an integer from the given little-endian binary string.
   # @param [String] str
   # @return [Fixnum]
   def self.bson_to_int(str)
-    int, bits, zero = 0, (str.bytesize * 8), true
-    raise CrunchError, "Invalid BSON conversion on '#{str}': must be 4 or 8 bytes in size." unless bits == 32 or bits == 64
-    
-    negative = str.getbyte(-1) > 127
-    str.each_byte do |byte|                 # Make it big-endian for convenience
-      
-      if negative
-        zero = zero && byte == 255 && bits > 0
-      else
-        zero = 
-      zero = zero && (negative ? byte == 255 : byte == 0) && bits > 0
-      unless zero
-        byte = (byte - 256) if negative   # Two's complement for negative numbers 
-        int += byte << bits
+    bits = str.reverse.unpack('B*').first   # Get the 0s and 1s
+    if bits[0] == '0'   # We're a positive number; life is easy
+      bits.to_i(2)
+    else                # Get the twos complement
+      comp, flip = "", false
+      bits.reverse.each_char do |bit|
+        comp << (flip ? bit.tr('10','01') : bit)
+        flip = true if !flip && bit == '1'
       end
+      ("-" + comp.reverse).to_i(2)
     end
-    int
   end
-  
-  private
-    def twos_complement(byte)
-      return byte if byte < 128
-        
-    end
 
 end

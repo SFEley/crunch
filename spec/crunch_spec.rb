@@ -87,14 +87,7 @@ describe Crunch do
 
     end
 
-    describe "- bson_to_int" do
-      it "throws an error if not 4 or 8 bytes" do
-        ->{Crunch.bson_to_int("\x00\x00\x00")}.should raise_error(Crunch::CrunchError, /4 or 8 bytes/)
-        ->{Crunch.bson_to_int("\x00\x00\x00\x00\x00")}.should raise_error(Crunch::CrunchError, /4 or 8 bytes/)
-        ->{Crunch.bson_to_int("\x00\x00\x00\x00\x00\x00\x00\x00\x00")}.should raise_error(Crunch::CrunchError, /4 or 8 bytes/)
-        ->{Crunch.bson_to_int('')}.should raise_error(Crunch::CrunchError, /4 or 8 bytes/)
-      end
-        
+    describe "- bson_to_int" do        
       it "converts zero as 4 bytes" do
         Crunch.bson_to_int("\x00\x00\x00\x00").should == 0
       end
@@ -129,6 +122,14 @@ describe Crunch do
 
       it "converts the negative 32-bit boundary" do
         Crunch.bson_to_int("\xFF\xFF\xFF\x7F\xFF\xFF\xFF\xFF").should == -2147483649
+      end
+      
+      it "converts positive numbers just below the 64-bit boundary" do
+        Crunch.bson_to_int("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x7F").should == 9223372036854775807
+      end
+      
+      it "converts negative numbers just below the 64-bit boundary" do
+        Crunch.bson_to_int("\x00\x00\x00\x00\x00\x00\x00\x80").should == -9223372036854775808
       end
       
     end
