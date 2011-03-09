@@ -26,5 +26,7 @@ module Crunch
     def begin
       @began = Time.now
     end
+    
+    # Abstract base method -- will be overwritten 
   end
 end
