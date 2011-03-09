@@ -114,7 +114,23 @@ describe Crunch do
       it "converts -100" do
         Crunch.bson_to_int("\x9C\xFF\xFF\xFF").should == -100
       end
+      
+      it "converts positive numbers just below the 32-bit boundary" do
+        Crunch.bson_to_int("\xFF\xFF\xFF\x7F").should == 2147483647
+      end
+      
+      it "converts negative numbers just below the 32-bit boundary" do
+        Crunch.bson_to_int("\x00\x00\x00\x80").should == -2147483648
+      end
+      
+      it "converts the positive 32-bit boundary" do
+        Crunch.bson_to_int("\x00\x00\x00\x80\x00\x00\x00\x00").should == 2147483648
+      end
 
+      it "converts the negative 32-bit boundary" do
+        Crunch.bson_to_int("\xFF\xFF\xFF\x7F\xFF\xFF\xFF\xFF").should == -2147483649
+      end
+      
     end
 
 
