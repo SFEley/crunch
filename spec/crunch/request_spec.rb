@@ -9,11 +9,11 @@ module Crunch
     behaves_like "a Request"
     
     it "has an opcode for OP_MSG" do
-      @this.class.opcode.should == 1000
+      Crunch.bson_to_int(@this.class.opcode).should == 1000
     end
     
     it "has its message as the body" do
-      @this.body.should == "To sit in sullen silence..."
+      @this.body.should == "To sit in sullen silence...\x00"
     end
     
     
