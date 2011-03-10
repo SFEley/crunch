@@ -39,8 +39,8 @@ module Crunch
     
     # The 16-byte header is always part of a MongoDB request.
     def header
-      length_bson = Crunch.int_to_bson(body.bytesize + 16)
-      request_bson = Crunch.int_to_bson(self.request_id)
+      length_bson = BSON.from_int(body.bytesize + 16)
+      request_bson = BSON.from_int(self.request_id)
       "#{length_bson}#{request_bson}#{Crunch::ZERO}#{self.class.opcode}"
     end
     
