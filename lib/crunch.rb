@@ -9,24 +9,6 @@ module Crunch
   autoload :Request, 'crunch/request'
   autoload :Connection, 'crunch/connection'
 
-  # A simple binary string counter.
-  Counter = Fiber.new do
-    counter = "\x00\x00\x00\x00"
-    counter.force_encoding('BINARY')
-    loop do
-      Fiber.yield counter
-      if counter.getbyte(3) == 255
-        if counter.getbyte(2) == 255
-          if counter.getbyte(1) == 255
-              counter.setbyte(0, counter.getbyte(0) + 1)
-          end
-          counter.setbyte(1, counter.getbyte(1) + 1)
-        end
-        counter.setbyte(2, counter.getbyte(2) + 1)
-      end
-      counter.setbyte(3, counter.getbyte(3) + 1)
-    end
-  end
   
   
   # @overload oid

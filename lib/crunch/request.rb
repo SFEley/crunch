@@ -2,25 +2,33 @@
 
 module Crunch
   class Request
-    
-    # This class variable is shared with all subclasses
-    @@request_id = 0
+    # A simple binary string counter; returns a four-byte little-endian string.
+    @@counter = Fiber.new do
+      counter = "\x00\x00\x00\x00"
+      counter.force_encoding('BINARY')
+      loop do
+        Fiber.yield counter
+        if counter.getbyte(0) == 255
+          if counter.getbyte(1) == 255
+            if counter.getbyte(2) == 255
+                counter.setbyte(3, counter.getbyte(3) + 1)
+            end
+            counter.setbyte(2, counter.getbyte(2) + 1)
+          end
+          counter.setbyte(1, counter.getbyte(1) + 1)
+        end
+        counter.setbyte(0, counter.getbyte(0) + 1)
+      end
+    end
     
     @opcode = BSON.from_int(1000)     # OP_MSG
     
-    # Returns an integer that increases monotonically across every subclass of Request.
-    # MongoDB uses the request ID in responses, so it's important that no two IDs
-    # within a connection are the same.
-    # @return Integer
-    def self.request_id
-      @@request_id += 1
-    end
     
     # Assigns an ID from the Request.request_id class method to this particular
     # object, or returns one that has already been assigned.
     # @return Integer
     def request_id
-      @request_id ||= self.class.request_id
+      @request_id ||= @@counter.resume
     end
     
     # Returns the MongoDB operation ID for this request type.

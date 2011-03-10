@@ -9,6 +9,23 @@ module Crunch
     # Represents a twelve-byte ObjectID as defined in the MongoDB spec.
     # @see http://www.mongodb.org/display/DOCS/Object+IDs
     class ObjectID
+      
+      # A simple binary string counter.
+      @@counter = Fiber.new do
+        counter = "\x00\x00\x00"
+        counter.force_encoding('BINARY')
+        loop do
+          Fiber.yield counter
+          if counter.getbyte(2) == 255
+            if counter.getbyte(1) == 255
+                counter.setbyte(0, counter.getbyte(0) + 1)
+            end
+            counter.setbyte(1, counter.getbyte(1) + 1)
+          end
+          counter.setbyte(2, counter.getbyte(2) + 1)
+        end
+      end
+      
       # An ID reasonably likely to be unique to this machine. The Mongo docs
       # are surprisingly unspecific on how to achieve this. We do it by
       # concatenating the hostname and all IP addresses known to this 
@@ -32,6 +49,11 @@ module Crunch
       # The creation time of the object as a binary string.
       def timestamp
         @timestamp ||= [@created_at.to_i].pack('N')
+      end
+      
+      # A monotonically increasing counter as a three-byte big-endian string.
+      def counter
+        @counter ||= @@counter.resume
       end
       
       # An incrementing 
