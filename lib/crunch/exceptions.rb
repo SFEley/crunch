@@ -1,6 +1,8 @@
 module Crunch
   class CrunchError < StandardError; end
   
+    class BSONError < CrunchError; end
+  
     class DatabaseError < CrunchError; end
   
     class MessageError < CrunchError; end

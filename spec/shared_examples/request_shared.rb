@@ -11,7 +11,7 @@ module Crunch
     end
     
     it "has an opcode" do
-      Crunch.bson_to_int(@this.class.opcode).should >= 0
+      BSON.to_int(@this.class.opcode).should >= 0
     end
     
     it "has a fixed size header" do
@@ -27,7 +27,7 @@ module Crunch
     end
     
     it "has the right length" do
-      Crunch.bson_to_int(@this.to_s[0..3]).should == @this.body.bytesize + 16
+      BSON.to_int(@this.to_s[0..3]).should == @this.body.bytesize + 16
     end
     
   end

@@ -1,0 +1,1 @@
+require 'crunch/bson/numeric'

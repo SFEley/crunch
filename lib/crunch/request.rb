@@ -6,7 +6,7 @@ module Crunch
     # This class variable is shared with all subclasses
     @@request_id = 0
     
-    @opcode = Crunch.int_to_bson(1000)     # OP_MSG
+    @opcode = BSON.from_int(1000)     # OP_MSG
     
     # Returns an integer that increases monotonically across every subclass of Request.
     # MongoDB uses the request ID in responses, so it's important that no two IDs
