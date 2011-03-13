@@ -1,3 +1,4 @@
+#encoding: BINARY
 require File.dirname(__FILE__) + '/../../spec_helper'
 
 module Crunch
@@ -7,20 +8,38 @@ module Crunch
         @this = ObjectID.new
       end
       
-      it "is 12 bytes long" do
-        @this.to_s.bytesize.should == 12
-      end
-      
-      it "knows a machine ID" do
-        @this.class.machine_id.bytesize.should == 3
-      end
-      
-      it "knows a process ID" do
-        @this.class.process_id.bytesize.should == 2
-      end
-      
-      it "knows its timestamp" do
-        Time.at(@this.timestamp.unpack('N').first).should be_within(1).of(Time.now)
+      describe "creation" do
+        it "is 12 bytes long" do
+          @this.bin.bytesize.should == 12
+        end
+
+        it "knows its machine ID" do
+          @this.machine_id.should > 0
+        end
+        
+        it "knows its process ID" do
+          @this.process_id.should > 0
+        end
+        
+        it "knows its timestamp" do
+          @this.timestamp.should be_within(1).of(Time.now)
+        end
+        
+        it "has an incrementing counter" do
+          that = ObjectID.new
+          @this.counter.should == that.counter - 1
+        end
+        
+        it "returns hex by default" do
+          @this.to_s.size.should == 24
+          @this.to_s.should =~ /[0-9a-f]/i
+        end
+        
+        it "has all the pieces" do
+          @this.to_s[0..7].hex.should == @this.timestamp.to_i
+          @this.to_s
+        end
+        
       end
       
     end
