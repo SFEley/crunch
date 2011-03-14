@@ -28,10 +28,26 @@ module Crunch
       @@machine_id_bin = Digest::MD5.digest(Socket.gethostname + Socket.ip_address_list.join)[0..2]
       
       # With no parameters, creates a BSON ObjectID with the current timestamp.
-      # With a 12-byte binary string, creates a BSON ObjectID from the values
-      # embedded in the string.
+      # With a 12-byte binary string or 24-byte hex string, creates a BSON ObjectID
+      # from the values embedded in the string.
       def initialize(given=nil)
-        unless given
+        if given
+          if given.force_encoding(Encoding::BINARY).bytesize == 12  # Assume a binary data string
+            @bin = given
+            @timestamp = Time.at @bin[0..3].unpack('N').first
+            @machine_id = "\x00#{@bin[4..6]}".unpack('N').first
+            @process_id = @bin[7..8].unpack('n').first
+            @counter = "\x00#{@bin[9..11]}".unpack('N').first
+          elsif given =~ /[0-9a-f]{24}/i  # Hex string
+            @hex = given
+            @timestamp = @hex[0..7].hex
+            @machine_id = @hex[8..13].hex
+            @process_id = @hex[14..17].hex
+            @counter = @hex[18..23].hex
+          else
+            raise BSONError, "ObjectID import must be a valid binary or hex string; you gave: #{given}"
+          end
+        else
           @timestamp = Time.now
         end  
       end
@@ -52,7 +68,7 @@ module Crunch
       end
       
       def machine_id_bin
-        @machine_id_bin || @@machine_id_bin
+        @machine_id_bin ||= @machine_id ? threebytes(@machine_id) : @@machine_id_bin
       end
       
       def process_id
@@ -60,7 +76,7 @@ module Crunch
       end
       
       def process_id_bin
-        @process_id_bin || @@process_id_bin
+        @process_id_bin ||= @process_id ? [@process_id].pack('n') : @@process_id_bin
       end
       
       def counter
@@ -71,20 +87,25 @@ module Crunch
       end
       
       def counter_bin
-        @counter_bin ||= @@counter.resume
+        @counter_bin ||= @counter ? threebytes(@counter) : @@counter.resume
       end
       
       # Returns the ObjectID as a hex-encoded string
       def hex
-        binary.unpack('H*')
+        @hex ||= bin.unpack('H*').first
       end
-      alias_method :hex, :to_s
+      alias_method :to_s, :hex
       
       # Returns the ObjectID as a binary encoded string
       def bin
-        "#{timestamp_bin}#{machine_id_bin}#{process_id_bin}#{counter_bin}"
+        @bin ||= "#{timestamp_bin}#{machine_id_bin}#{process_id_bin}#{counter_bin}"
       end
 
+      private
+      # Returns a three-byte binary string from the given number
+      def threebytes(num)
+        [num].pack('N')[1..3]
+      end
     end
   end
 end
