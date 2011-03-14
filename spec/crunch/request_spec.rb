@@ -3,7 +3,8 @@ require File.dirname(__FILE__) + '/../spec_helper'
 module Crunch
   describe Request do
     before(:each) do
-      @this = Request.new(message: "To sit in sullen silence...")
+      @message = "To sit in sullen silence..."
+      @this = Request.new(message: @message)
     end
     
     behaves_like "a Request"
@@ -15,6 +16,11 @@ module Crunch
     it "has its message as the body" do
       @this.body.should == "To sit in sullen silence...\x00"
     end
+    
+    it "null terminates the message" do
+      @this.body.bytesize.should == @message.bytesize + 1
+    end
+    
     
     
   end
