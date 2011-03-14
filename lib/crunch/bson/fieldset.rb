@@ -38,8 +38,7 @@ module Crunch
       hash = case data
       when Fieldset then data   # Don't bother doing anything
       when Hash then stringify_keys(data)
-      when String then BSON.deserialize(BSON::ByteBuffer.new(data))
-      when BSON::ByteBuffer then BSON.deserialize(data)
+      when String then BSON.to_fieldset(data)
       when Array then hashify_elements(data)
       when nil then {}
       else raise FieldsetError, "Crunch::Fieldset can only be initialized from a hash, array, or binary data! You supplied: #{data}"
@@ -54,7 +53,7 @@ module Crunch
     # @see http://bsonspec.org/#/specification
     # @return String
     def to_s
-      BSON.serialize(self).to_s
+      BSON.from(self).to_s
     end
     alias_method :to_bson, :to_s
     
