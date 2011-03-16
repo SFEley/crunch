@@ -4,7 +4,7 @@ require 'date'
 
 module Crunch
   module BSON
-    describe "ObjectID" do
+    describe ObjectID do
       before(:each) do
         @this = ObjectID.new
       end

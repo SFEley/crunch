@@ -20,5 +20,30 @@ module Crunch
       bson.setbyte 3, sizestr.getbyte(3)
       bson
     end
+    
+    # Identifies the type of object that's passed to it, converts it to BSON,
+    # and returns its type, size, and the BSON string.
+    # @param [Object] value Something that _can_ be converted to BSON
+    # @return [Array] Type number, size in bytes, and the BSON string
+    def self.from_element(value)
+      case value
+      when Float then [1, 8, from_float(value)]
+      when String 
+        out = from_string(value)
+        [2, out.bytesize, out]
+      when Hash
+        out = from_hash(value)
+        [3, out.bytesize, out]
+      when Integer
+        out = from_int(value)
+        if out.bytesize == 4
+          [16, 4, out]
+        elsif out.bytesize == 8
+          [18, 8, out]
+        else 
+          raise BSONError, "BSON integer overflow: #{value} is larger than 64 bits."
+        end
+      end
+    end
   end
 end
