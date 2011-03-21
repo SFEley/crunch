@@ -1,4 +1,6 @@
 # encoding: BINARY
+require 'date'
+
 module Crunch
   module BSON
     # Returns the BSON document corresponding to the given Ruby hash.
@@ -29,13 +31,8 @@ module Crunch
       case value
       when Float then [1, 8, from_float(value)]
       when String   # Could be an actual string _OR_ binary data
-        if value.encoding == Encoding::BINARY
-          out = from_binary(value)
-          [5, out.bytesize, out]
-        else
-          out = from_string(value)
-          [2, out.bytesize, out]
-        end
+        out = from_string(value)
+        [2, out.bytesize, out]
       when Hash
         out = from_hash(value)
         [3, out.bytesize, out]
@@ -53,14 +50,36 @@ module Crunch
         value.each_with_index {|val, i| h[i] = val}
         out = from_hash(h)
         [4, out.bytesize, out]
+      when BSON::Binary
+        value.element
       when ObjectID
         [7, 12, value.bin]
       when false
         [8, 1, "\x00"]
       when true
         [8, 1, "\x01"]
+      when Time
+        msec = (value.to_f * 1000).floor
+        [9, 8, from_int(msec, length: 8)]
+      when Date
+        msec = (value.to_datetime.to_time.to_i * 1000)  # Stupid method chain, but casting to DateTime first ensures UTC zone
+        [9, 8, from_int(msec, length: 8)]
       when nil
         [10, 0, ""]
+      when Regexp
+        out = from_regex(value)
+        [11, out.bytesize, out]
+      when BSON::Javascript
+        value.element
+      when Symbol
+        out = from_string(value.to_s)
+        [14, out.bytesize, out]
+      when BSON::Timestamp
+        [17, 8, value.to_s]
+      when BSON::MIN
+        [255, 0, '']
+      when BSON::MAX
+        [127, 0, '']
       else
         raise BSONError, "Could not convert unknown data type to BSON: #{value}"
       end

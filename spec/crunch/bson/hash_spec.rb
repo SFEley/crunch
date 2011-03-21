@@ -1,5 +1,6 @@
 #encoding: BINARY
 require File.dirname(__FILE__) + '/../../spec_helper'
+require 'date'
 
 module Crunch
   describe BSON do
@@ -51,11 +52,11 @@ module Crunch
       end
       
       it "handles arrays" do
-        BSON.from_element([1, :foo, 'eleven', 3.5, nil, false]).should == [4, 55, "7\x00\x00\x00\x100\x00\x01\x00\x00\x00\x0E1\x00\x04\x00\x00\x00foo\x00\x022\x00\a\x00\x00\x00eleven\x00\x013\x00\x00\x00\x00\x00\x00\x00\f@\n4\x00\b5\x00\x00\x00"]
+        BSON.from_element([1, :foo, 'eleven'.force_encoding('ASCII'), 3.5, nil, false]).should == [4, 55, "7\x00\x00\x00\x100\x00\x01\x00\x00\x00\x0E1\x00\x04\x00\x00\x00foo\x00\x022\x00\a\x00\x00\x00eleven\x00\x013\x00\x00\x00\x00\x00\x00\x00\f@\n4\x00\b5\x00\x00\x00"]
       end
       
       it "can handle binary data" do
-        b = "\x1F\x85\xEBQ\xB8\x1E\t@".force_encoding('BINARY') # This is the BSON string for 3.14.  Chosen arbitrarily.
+        b = BSON.binary("\x1F\x85\xEBQ\xB8\x1E\t@".force_encoding('BINARY'))
         BSON.from_element(b).should == [5, 13, "\x08\x00\x00\x00\x00\x1F\x85\xEBQ\xB8\x1E\t@"]
       end
       
@@ -72,23 +73,61 @@ module Crunch
         BSON.from_element(true).should == [8, 1, 1.chr]
       end
       
+      it "can handle times" do
+        t = Time.gm(2011, 3, 21, 14, 19, 30, 115147)  # Down to the microsecond level!
+        BSON.from_element(t).should == [9, 8, "\xC3\xED\xC8\xD8.\x01\x00\x00"]
+      end
+
+      it "can handle dates" do
+        d = Date.parse("2011-03-21")
+        BSON.from_element(d).should == [9, 8, "\x00\b\xB6\xD5.\x01\x00\x00"]
+      end
+        
+      it "can handle datetimes" do
+        dt = DateTime.parse("2011-03-21 14:19:30")
+        BSON.from_element(dt).should == [9, 8, "P\xED\xC8\xD8.\x01\x00\x00"]
+      end
+      
       it "can handle nil" do
         BSON.from_element(nil).should == [10, 0, ""]
       end
       
-      it "can handle datetimes" do
-        pending
+      it "can handle regexes" do
+        r = /^this$/
+        BSON.from_element(r).should == [11, 8, "^this$\x00\x00"]
       end
       
-      it "can handle regexes" do
-        pending
+      it "can handle regexes with options" do
+        r = /^this$/ix
+        BSON.from_element(r).should == [11, 10, "^this$\x00ix\x00"]
       end
       
       it "can handle Javascript" do
-        pending
+        j = BSON.javascript "function() { return this; }"
+        BSON.from_element(j).should == [13, 32, "\x1C\x00\x00\x00function() { return this; }\x00"]
       end
       
+      it "can handle Javascript with scope" do
+        j = BSON.javascript "function() { return this; }", this: 5
+        BSON.from_element(j).should == [15, 51, "3\x00\x00\x00\x1C\x00\x00\x00function() { return this; }\x00\x0F\x00\x00\x00\x10this\x00\x05\x00\x00\x00\x00"]
+      end
       
+      it "can handle symbols" do
+        BSON.from_element(:bar).should == [14, 8, "\x04\x00\x00\x00bar\x00"]
+      end
+      
+      it "can handle a BSON Timestamp" do
+        ts = BSON::Timestamp.new
+        BSON.from_element(ts).should == [17, 8, "\x00\x00\x00\x00\x00\x00\x00\x00"]
+      end
+      
+      it "recognizes the MIN value" do
+        BSON.from_element(BSON::MIN).should == [255, 0, '']
+      end
+      
+      it "recognizes the MAX value" do
+        BSON.from_element(BSON::MAX).should == [127, 0, '']
+      end
         
     end
     

@@ -26,16 +26,16 @@ module Crunch
       (from_int(out.bytesize, length: 4) + out).force_encoding(Encoding::BINARY)
     end
     
-    # Produces a BSON binary type, which is defined as:
-    # 1. A 32-bit number giving the length in bytes of the binary string (not including the subtype from #2);
-    # 2. A binary data subtype, which for right now we're simply forcing to the default of 0;
-    # 3. The binary data string itself, with no null terminators or such.
-    # @param [String] data The binary data; must be in Encoding::Binary.
-    # @return [String] A binary BSON data string
-    def self.from_binary(str)
-      from_int(str.bytesize) << 0 << str.force_encoding(Encoding::BINARY)
-    rescue NoMethodError
-      raise BSONError, "A binary string input is required; instead you gave: #{str}"
+    # Produces a BSON regex type, which is a concatenation of cstrings for the
+    # pattern and the options.  The 'u' option is set as well if the encoding
+    # contains higher-order bytes.
+    def self.from_regex(regex, opts={})
+      optstr, opts = "", regex.options
+      optstr << 'i' if (opts & 1) == 1
+      optstr << 'm' if (opts & 4) == 4
+      optstr << 'u' if regex.fixed_encoding?
+      optstr << 'x' if (opts & 2) == 2
+      cstring(regex.source) + cstring(optstr, normalized: true)
     end
   end
 end
