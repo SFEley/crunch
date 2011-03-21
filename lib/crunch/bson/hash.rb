@@ -12,13 +12,13 @@ module Crunch
         size += keystring.bytesize + valsize + 1
         bson << valtype << keystring << valstring
       end
-      bson << 0   # Ends with a null
+      bson << "\x00"   # Ends with a null
       sizestr = from_int(size, length: 4)
       bson.setbyte 0, sizestr.getbyte(0)  # Crude, but fastest way to replace the START
       bson.setbyte 1, sizestr.getbyte(1)  # of a string.
       bson.setbyte 2, sizestr.getbyte(2)
       bson.setbyte 3, sizestr.getbyte(3)
-      bson
+      bson.force_encoding(Encoding::BINARY)
     end
     
     # Identifies the type of object that's passed to it, converts it to BSON,
@@ -28,9 +28,14 @@ module Crunch
     def self.from_element(value)
       case value
       when Float then [1, 8, from_float(value)]
-      when String 
-        out = from_string(value)
-        [2, out.bytesize, out]
+      when String   # Could be an actual string _OR_ binary data
+        if value.encoding == Encoding::BINARY
+          out = from_binary(value)
+          [5, out.bytesize, out]
+        else
+          out = from_string(value)
+          [2, out.bytesize, out]
+        end
       when Hash
         out = from_hash(value)
         [3, out.bytesize, out]
@@ -43,6 +48,21 @@ module Crunch
         else 
           raise BSONError, "BSON integer overflow: #{value} is larger than 64 bits."
         end
+      when Array  # Turn it into a hash first
+        h = {}
+        value.each_with_index {|val, i| h[i] = val}
+        out = from_hash(h)
+        [4, out.bytesize, out]
+      when ObjectID
+        [7, 12, value.bin]
+      when false
+        [8, 1, "\x00"]
+      when true
+        [8, 1, "\x01"]
+      when nil
+        [10, 0, ""]
+      else
+        raise BSONError, "Could not convert unknown data type to BSON: #{value}"
       end
     end
   end

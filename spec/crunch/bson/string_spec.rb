@@ -70,5 +70,29 @@ module Crunch
       end
       
     end
+    
+    describe "- from_binary method" do
+      it "handles an empty binary string" do
+        BSON.from_binary('').should == "\x00\x00\x00\x00\x00".force_encoding('BINARY')
+      end
+      
+      it "does NOT handle nil" do
+        ->{BSON.from_binary(nil)}.should raise_error(BSONError, /binary string/)
+      end
+      
+      it "does NOT convert other types" do
+        ->{BSON.from_binary(3.14)}.should raise_error(BSONError, /binary string/)
+      end
+      
+      it "is binary encoded" do
+        BSON.from_binary("}\x99$\x00".force_encoding('BINARY')).encoding.should == Encoding::BINARY
+      end
+      
+      it "adds the subtype and length" do
+        BSON.from_binary("}\x99$\x00".force_encoding('BINARY')).should == "\x04\x00\x00\x00\x00}\x99$\x00".force_encoding('BINARY')
+      end
+      
+    end
+    
   end
 end
