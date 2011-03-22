@@ -13,7 +13,6 @@ module Crunch
       it "converts empty hashes" do
         BSON.from_hash({}).should == "\x05\x00\x00\x00\x00"
       end
-      
     end
     
     describe "- from_element method" do
@@ -129,6 +128,20 @@ module Crunch
         BSON.from_element(BSON::MAX).should == [127, 0, '']
       end
         
+    end
+    
+    describe "- to_hash method" do
+      it "works for the empty hash" do
+        BSON.to_hash("\x05\x00\x00\x00\x00").should == {}
+      end
+      
+      it "works for simple hashes" do
+        BSON.to_hash("\e\x00\x00\x00\x02hi\x00\x03\x00\x00\x00ho\x00\x10three\x00\x03\x00\x00\x00\x00").should == {'hi' => 'ho', 'three' => 3}
+      end
+      
+      it "validates correct termination" do
+        ->{BSON.to_hash("\e\x00\x00\x00\x02hi\x00\x03\x00\x00\x00ho\x00\x10three\x00\x03\x00\x00\x00")}.should raise_error(BSONError, /invalid document/)
+      end
     end
     
   end

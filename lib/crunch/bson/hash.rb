@@ -76,5 +76,43 @@ module Crunch
         raise BSONError, "Could not convert unknown data type to BSON: #{value}"
       end
     end
+    
+    # Returns a Ruby hash from the given BSON binary string.
+    # @param [String] bson A BSON string. Will be cast to binary if it isn't already.
+    # @return [Hash] All keys will be strings; values will be the inverse of the #from_hash method.
+    # @see http://bsonspec.org/#/specification
+    def self.to_hash(source)
+      source.force_encoding Encoding::BINARY
+      length = to_int(source.slice!(0,4))
+      bson = source.slice!(0,length - 5)
+      raise BSONError, "BSON had invalid document structure (expected \\x00 at byte #{length}, got: #{source})" unless source == "\x00"
+
+      hash = {}
+      until bson.empty?
+        element_type = bson.slice!(0)
+        element_name = bson.slice!(/[^\0]+/u)
+        throwaway = bson.slice!(0)
+        
+        # We're inlining this to avoid unnecessary string copying.  I'm not thrilled
+        # about it either.  This method is too long!
+        case element_type.getbyte(0)
+        when 1
+          element = to_float(bson.slice!(0,8))
+        when 2
+          element_length = to_int(bson.slice!(0,4))
+          element = bson.slice!(0,element_length - 1).force_encoding(Encoding::UTF_8)
+          throwaway = bson.slice!(0)
+        when 16
+          element = to_int(bson.slice!(0,4))
+        when 18
+          element = to_int(bson.slice!(0,8))
+        end
+        hash[element_name] = element
+      end
+      # Step through keys and types
+      # until bson.empty? do
+      # end
+      hash
+    end
   end
 end
