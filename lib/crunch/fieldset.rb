@@ -45,6 +45,7 @@ module Crunch
       end
       
       private_replace(hash)
+      @string = BSON.from_hash(self)  # Must do this before it's frozen
       self.freeze
     end
     
@@ -53,7 +54,7 @@ module Crunch
     # @see http://bsonspec.org/#/specification
     # @return String
     def to_s
-      @string ||= BSON.from_hash(self)
+      @string
     end
     alias_method :bin, :to_s
     

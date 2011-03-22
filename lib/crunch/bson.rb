@@ -1,8 +1,8 @@
 module Crunch
   module BSON
     # Special constants
-    MIN = :bson_min
-    MAX = :bson_max
+    MIN = :BSON_MIN
+    MAX = :BSON_MAX
   end
 end
 
