@@ -200,7 +200,7 @@ module Crunch
       end
       
       it "can handle JavaScript without a scope" do
-        out = BSON.to_hash("+\x00\x00\x00\x02test\x00\x1C\x00\x00\x00function() { return this; }\x00\x00")
+        out = BSON.to_hash("+\x00\x00\x00\x0Dtest\x00\x1C\x00\x00\x00function() { return this; }\x00\x00")
         out['test'].should be_a(BSON::Javascript)
         out['test'].code.should == 'function() { return this; }'
         out['test'].scope.should be_nil
@@ -228,16 +228,16 @@ module Crunch
       it "can handle BSON timestamps" do
         out = BSON.to_hash("\x13\x00\x00\x00\x11test\x00\xAB\xBE\x8AM\x05\x00\x00\x00\x00")
         out['test'].should be_a(BSON::Timestamp)
-        out['test'].time.should == Time.at(1300938384)
+        out['test'].time.should == Time.at(1300938411)
         out['test'].counter.should == 5
       end
       
       it "can handle MIN" do
-        BSON.to_hash("\v\x00\x00\x00\xFFtest\x00\x00").should == BSON::MIN
+        BSON.to_hash("\v\x00\x00\x00\xFFtest\x00\x00").should == {'test' => BSON::MIN}
       end
       
       it "can handle MAX" do
-        BSON.to_hash("\v\x00\x00\x00\x7Ftest\x00\x00").should == BSON::MAX
+        BSON.to_hash("\v\x00\x00\x00\x7Ftest\x00\x00").should == {'test' => BSON::MAX}
       end
       
       it "can't handle the unknown" do

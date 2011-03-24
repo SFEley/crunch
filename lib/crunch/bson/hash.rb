@@ -82,6 +82,7 @@ module Crunch
     # @return [Hash] All keys will be strings; values will be the inverse of the #from_hash method.
     # @see http://bsonspec.org/#/specification
     def self.to_hash(source)
+      cstring_pattern = /[^\0]+/n
       source.force_encoding Encoding::BINARY
       length = to_int(source.slice!(0,4))
       bson = source.slice!(0,length - 5)
@@ -90,8 +91,8 @@ module Crunch
       hash = {}
       until bson.empty?
         element_type = bson.slice!(0).getbyte(0)
-        element_name = bson.slice!(/[^\0]+/n)
-        throwaway = bson.slice!(0)
+        element_name = bson.slice!(cstring_pattern)
+        null = bson.slice!(0)
         
         # We're inlining this to avoid unnecessary string copying.  I'm not thrilled
         # about it either.  This method is too long!
@@ -101,11 +102,49 @@ module Crunch
         when 2
           element_length = to_int(bson.slice!(0,4))
           element = bson.slice!(0,element_length - 1).force_encoding(Encoding::UTF_8)
-          throwaway = bson.slice!(0)
+          null = bson.slice!(0)
+        when 11
+          # Regex -- this one's elaborate
+          regex_pattern = bson.slice!(cstring_pattern)
+          null = bson.slice!(0)
+          regex_options = bson.slice!(cstring_pattern)
+          null = bson.slice!(0)
+          element_opts = 0
+          element_opts |= Regexp::IGNORECASE if regex_options =~ /i/
+          element_opts |= Regexp::MULTILINE if regex_options =~ /m/
+          element_opts |= Regexp::EXTENDED if regex_options =~ /x/
+          regex_pattern.force_encoding(Encoding::UTF_8) if regex_options =~ /u/
+          element = Regexp.new(regex_pattern, element_opts)
+          
+        when 13
+          # Code without scope -- essentially the same as a string
+          code_length = to_int(bson.slice!(0,4))
+          code = bson.slice!(0,code_length - 1).force_encoding(Encoding::UTF_8)
+          null = bson.slice!(0)
+          element = Javascript.new(code)
+        when 14
+          element_length = to_int(bson.slice!(0,4))
+          element = bson.slice!(0,element_length - 1).force_encoding(Encoding::UTF_8).to_sym
+          null = bson.slice!(0)
+        when 15
+          # Code with scope -- a very annoying one
+          total_length = to_int(bson.slice!(0,4))  
+          code_length = to_int(bson.slice!(0,4))
+          code = bson.slice!(0,code_length - 1).force_encoding(Encoding::UTF_8)
+          null = bson.slice!(0)
+          scope_bson = bson.slice!(0,total_length - code_length)
+          scope = to_hash(scope_bson)
+          element = Javascript.new(code, scope)
         when 16
           element = to_int(bson.slice!(0,4))
+        when 17
+          element = Timestamp.new(bson.slice!(0,8))
         when 18
           element = to_int(bson.slice!(0,8))
+        when 127
+          element = MAX
+        when 255
+          element = MIN
         else
           raise BSONError, "BSON document had unknown data type '\\x#{element_type.to_s(16)}' for field '#{element_name}'."
         end
