@@ -16,6 +16,7 @@ module Crunch
       USER      = "\x80"    # User-defined data subtype (no special treatment)
       
       attr_reader :data, :subtype, :length
+      alias_method :to_s, :data
       
       # Creates a new BSON binary object from its parameter hash.  The `:length` 
       # option is only likely to be given if we are being given input _from_
@@ -25,15 +26,22 @@ module Crunch
       # @option opts [String] :subtype A single byte indicating the BSON binary subtype. Use the built-in constants for easy reference. Defaults to Binary::GENERIC.
       # @option opts [String] :length Four little-endian bytes indicating the bytesize of the _data_ (not the full type string).
       def initialize(data, opts={})
-        @data = data
+        @data = data.force_encoding(Encoding::BINARY)
         @subtype = opts[:subtype] || GENERIC
         @length = opts[:length] || BSON.from_int(@data.bytesize)
+        
+        # 'OLD' subtype is a special case, with extra length info at the start
+        @data.slice!(0,4) if @subtype == OLD
       end
       
       # Returns itself as a BSON-valid binary string.
       # @see http://bsonspec.org/#/specification
-      def to_s
-        @string ||= @length << @subtype << @data
+      def bin
+        @bin ||= if subtype == OLD
+          length << subtype << BSON.from_int(data.bytesize) << data
+        else
+          length << subtype << data
+        end
       end
       
       # Returns a three-element array with:
@@ -41,7 +49,7 @@ module Crunch
       # 2. The length of the full binary string, including the length and subtype
       # 3. The binary string itself
       def element
-        @element ||= [5, to_s.bytesize, to_s]
+        @element ||= [5, bin.bytesize, bin]
       end
     end
     

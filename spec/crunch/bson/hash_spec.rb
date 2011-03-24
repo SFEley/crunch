@@ -163,7 +163,7 @@ module Crunch
       end
       
       it "can handle arrays" do
-        BSON.to_hash("9\x00\x00\x00\x04test\x00.\x00\x00\x00\x100\x00\x01\x00\x00\x00\x021\x00\x04\x00\x00\x00two\x00\x012\x00\x00\x00\x00\x00\x00\x00\b@\x0E3\x00\x05\x00\x00\x00four\x00\x00\x00").should == [1, "two", 3.0, :four]
+        BSON.to_hash("9\x00\x00\x00\x04test\x00.\x00\x00\x00\x100\x00\x01\x00\x00\x00\x021\x00\x04\x00\x00\x00two\x00\x012\x00\x00\x00\x00\x00\x00\x00\b@\x0E3\x00\x05\x00\x00\x00four\x00\x00\x00").should == {'test' => [1, "two", 3.0, :four]}
       end
       
       it "can handle binary data" do
@@ -188,7 +188,8 @@ module Crunch
       end
       
       it "can handle the time" do
-        BSON.to_hash("\x13\x00\x00\x00\ttest\x00\xD77\xE9\xE5.\x01\x00\x00\x00").should == {'test' => Time.at(1300937390)}
+        out = BSON.to_hash("\x13\x00\x00\x00\ttest\x00\xD77\xE9\xE5.\x01\x00\x00\x00")
+        out['test'].should be_within(0.1).of(Time.at(1300937390))
       end
       
       it "can handle nil" do

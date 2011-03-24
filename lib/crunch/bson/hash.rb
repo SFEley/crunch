@@ -97,14 +97,49 @@ module Crunch
         # We're inlining this to avoid unnecessary string copying.  I'm not thrilled
         # about it either.  This method is too long!
         case element_type
-        when 1
+          
+        when 1    # Float
           element = to_float(bson.slice!(0,8))
-        when 2
+
+        when 2    # String
           element_length = to_int(bson.slice!(0,4))
           element = bson.slice!(0,element_length - 1).force_encoding(Encoding::UTF_8)
           null = bson.slice!(0)
-        when 11
-          # Regex -- this one's elaborate
+        
+        when 3    # Hash (or embedded document)
+          doc = bson.slice!(0,4)  # Need to read this first to know how far to slice
+          doc_length = to_int(doc)
+          doc << bson.slice!(0,doc_length - 4)
+          element = to_hash(doc)
+          
+        when 4    # Array -- just like a hash, but we don't care about the keys
+          doc = bson.slice!(0,4)
+          doc_length = to_int(doc)
+          doc << bson.slice!(0,doc_length - 4)
+          element = to_hash(doc).values
+          
+        when 5    # Binary
+          binary_length = to_int(bson.slice!(0,4))
+          binary_subtype = bson.slice!(0)
+          binary_data = bson.slice!(0,binary_length)
+          element = Binary.new(binary_data, subtype: binary_subtype, length: binary_length)
+          
+        when 7    # ObjectID
+          object_id = bson.slice!(0,12)
+          element = ObjectID.new(object_id)
+          
+        when 8    # Boolean
+          flag = bson.slice!(0)
+          element = (flag.getbyte(0) == 1)
+          
+        when 9    # Date -- we'll return it as a Time because it's simplest
+          time = to_int(bson.slice!(0,8))
+          element = Time.at(time / 1000.0)    
+          
+        when 10   # Null
+          element = nil
+
+        when 11   # Regex -- this one's elaborate because of the option codes
           regex_pattern = bson.slice!(cstring_pattern)
           null = bson.slice!(0)
           regex_options = bson.slice!(cstring_pattern)
@@ -116,18 +151,19 @@ module Crunch
           regex_pattern.force_encoding(Encoding::UTF_8) if regex_options =~ /u/
           element = Regexp.new(regex_pattern, element_opts)
           
-        when 13
+        when 13   # Code without scope -- essentially a string
           # Code without scope -- essentially the same as a string
           code_length = to_int(bson.slice!(0,4))
           code = bson.slice!(0,code_length - 1).force_encoding(Encoding::UTF_8)
           null = bson.slice!(0)
           element = Javascript.new(code)
-        when 14
+          
+        when 14   # Symbol
           element_length = to_int(bson.slice!(0,4))
           element = bson.slice!(0,element_length - 1).force_encoding(Encoding::UTF_8).to_sym
           null = bson.slice!(0)
-        when 15
-          # Code with scope -- a very annoying one
+          
+        when 15   # Code with scope -- an annoying one, with an implicit embedded document
           total_length = to_int(bson.slice!(0,4))  
           code_length = to_int(bson.slice!(0,4))
           code = bson.slice!(0,code_length - 1).force_encoding(Encoding::UTF_8)
@@ -135,24 +171,27 @@ module Crunch
           scope_bson = bson.slice!(0,total_length - code_length)
           scope = to_hash(scope_bson)
           element = Javascript.new(code, scope)
-        when 16
+
+        when 16   # 32-bit integer
           element = to_int(bson.slice!(0,4))
-        when 17
+          
+        when 17   # BSON Timestamp (not to be confused with any sort of time class)
           element = Timestamp.new(bson.slice!(0,8))
-        when 18
+          
+        when 18   # 64-bit integer
           element = to_int(bson.slice!(0,8))
-        when 127
+          
+        when 127  # Max key
           element = MAX
-        when 255
+          
+        when 255  # Min key
           element = MIN
         else
           raise BSONError, "BSON document had unknown data type '\\x#{element_type.to_s(16)}' for field '#{element_name}'."
         end
         hash[element_name] = element
       end
-      # Step through keys and types
-      # until bson.empty? do
-      # end
+
       hash
     end
   end
