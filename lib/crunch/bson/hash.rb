@@ -89,13 +89,13 @@ module Crunch
 
       hash = {}
       until bson.empty?
-        element_type = bson.slice!(0)
-        element_name = bson.slice!(/[^\0]+/u)
+        element_type = bson.slice!(0).getbyte(0)
+        element_name = bson.slice!(/[^\0]+/n)
         throwaway = bson.slice!(0)
         
         # We're inlining this to avoid unnecessary string copying.  I'm not thrilled
         # about it either.  This method is too long!
-        case element_type.getbyte(0)
+        case element_type
         when 1
           element = to_float(bson.slice!(0,8))
         when 2
@@ -106,6 +106,8 @@ module Crunch
           element = to_int(bson.slice!(0,4))
         when 18
           element = to_int(bson.slice!(0,8))
+        else
+          raise BSONError, "BSON document had unknown data type '\\x#{element_type.to_s(16)}' for field '#{element_name}'."
         end
         hash[element_name] = element
       end
