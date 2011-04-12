@@ -5,6 +5,7 @@ module Crunch
     before(:each) do
       @db = Database.connect 'crunch_test', min_connections: 1, max_connections: 1, heartbeat: 0.01
       tick and @this = @db.connections.first
+      @this.requests_processed.should == 0
     end
     
     it "knows its database" do
@@ -14,5 +15,32 @@ module Crunch
     it "knows its status" do
       @this.status.should == :active
     end
+    
+    it "gets a message off the queue" do
+      r = Request.new(message: 'Test')
+      tick {@db << r}
+      @this.requests_processed.should == 1
+      @this.last_request.should == r
+    end
+    
+    it "continues to get messages" do
+      tick {3.times {|i| @db << Request.new(message: i.to_s)}}
+      @this.requests_processed.should == 3
+      @this.last_request.body.should == "2\x00"   # Because it's 0-based
+    end
+    
+    it "dies on a shutdown request" do
+      tick {@db << ShutdownRequest.new}
+      @this.status.should == :terminated
+      @db.connection_count.should == 0
+    end
+    
+    
+    after(:each) do
+      # Clear the global Databases hash
+      Database.class_variable_set(:@@databases, {})
+    end
+
+       
   end
 end

@@ -6,9 +6,11 @@ module Crunch
   # Hey, it's Ruby 1.9.  Autoload is safe again!  Spread the word!
   autoload :Fieldset, 'crunch/fieldset'
   autoload :Database, 'crunch/database'
-  autoload :Request, 'crunch/request'
   autoload :Connection, 'crunch/connection'
 
+  # Requests
+  autoload :Request, 'crunch/request'
+  autoload :ShutdownRequest, 'crunch/requests/shutdown_request'
   
   
   # @overload oid

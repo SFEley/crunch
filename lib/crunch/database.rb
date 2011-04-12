@@ -128,7 +128,7 @@ module Crunch
         @heartbeat_count = 0
       end
     end
-
+    
     def perform_heartbeat
       pc, cc = pending_count, connection_count
       

@@ -3,26 +3,23 @@
 module Crunch
   class Request
     # A simple counter; wraps at 2**31-1
-    @@counter = Fiber.new do
-      counter = 0
-      loop do
-        Fiber.yield counter
-        if counter > 2147483647
-          counter = 0
-        else
-          counter += 1
-        end
-      end
-    end
+    @@counter = 0
     
     @opcode = BSON.from_int(1000)     # OP_MSG
     
     
     # Assigns an ID from the Request.request_id class method to this particular
-    # object, or returns one that has already been assigned.
+    # object, or returns one that has already been assigned. The ID is global
+    # across all request classes.
     # @return String
     def request_id
-      @request_id ||= @@counter.resume
+      @request_id ||= begin
+        if @@counter > 2147483647
+          @@counter = 0
+        else
+          @@counter += 1
+        end
+      end
     end
     
     # Returns the MongoDB operation ID for this request type.
@@ -55,6 +52,8 @@ module Crunch
     def to_s
       "#{header}#{body}"
     end
+    
+    
     
     def initialize(options={})
       # Set any generic options passed; this flexibility keeps us from having to override
