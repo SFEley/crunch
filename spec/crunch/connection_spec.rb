@@ -30,9 +30,11 @@ module Crunch
     end
     
     it "dies on a shutdown request" do
+      @db.connections.should include(@this)
       tick {@db << ShutdownRequest.new}
       @this.status.should == :terminated
-      @db.connection_count.should == 0
+      sleep 0.2
+      @db.connections.should_not include(@this)
     end
     
     

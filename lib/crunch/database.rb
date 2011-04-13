@@ -122,17 +122,22 @@ module Crunch
     end
     
     def remove_connection
-      # TODO: 'suicide' message to Connection module
       @connections_mutex.synchronize do
-        @connections.shift
+        self << ShutdownRequest.new   # Put a suicide note into the queue
         @heartbeat_count = 0
       end
     end
     
     def perform_heartbeat
+      # Clear away dead connections
+      @connections_mutex.synchronize do
+        @connections.reject! {|c| c.status == :terminated}
+      end
+      
+      # Add or remove connections according to request queue size
       pc, cc = pending_count, connection_count
       
-      if pc > cc                              # We have more requests than connections
+      if pc > cc or cc < min_connections      # We have more requests than connections
         add_connection
       elsif pc < cc and cc > min_connections  # We have more connections than requests
         remove_connection if (@heartbeat_count += 1) >= (cc**2) 
@@ -140,6 +145,7 @@ module Crunch
         @heartbeat_count = 0
       end
       
+      # Custom user events
       @on_heartbeat.call if @on_heartbeat
     end
     

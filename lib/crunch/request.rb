@@ -2,7 +2,6 @@
 
 module Crunch
   class Request
-    # A simple counter; wraps at 2**31-1
     @@counter = 0
     
     @opcode = BSON.from_int(1000)     # OP_MSG
@@ -10,7 +9,7 @@ module Crunch
     
     # Assigns an ID from the Request.request_id class method to this particular
     # object, or returns one that has already been assigned. The ID is global
-    # across all request classes.
+    # and increases across all request classes, wrapping at the 32-bit boundary.
     # @return String
     def request_id
       @request_id ||= begin

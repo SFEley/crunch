@@ -1,3 +1,5 @@
+# encoding: BINARY
+
 require 'crunch'
 
 module Crunch

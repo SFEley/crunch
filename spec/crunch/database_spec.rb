@@ -106,7 +106,7 @@ module Crunch
     describe "request queue" do
       
       before(:each) do
-        @this = Database.connect 'crunch_test'
+        @this = Database.connect 'crunch_test', min_connections: 0, max_connections: 0
       end
 
       it "starts with no requests" do
@@ -135,9 +135,18 @@ module Crunch
       end
     end
     
+    # This spec code is incredibly nasty, because of difficult timing cases and the fact
+    # that our connections are trying really hard to do what we want them to do -- process
+    # requests as quickly as possible.  So making requests stay in the queue long enough
+    # for the pool size to change, while at the same time allowing ShutdownRequest messages
+    # to get processed, is ludicrously difficult.  I don't think the code itself is unclean,
+    # though, and we're not screwing with the implementation details of the Database itself.
+    # Just the EventMachine queue code.  This would be a good candidate for refactoring if
+    # there's a better way.
     describe "connection pool" do
       before(:each) do
         @beat_count = 0
+        EM::Queue.any_instance.stubs(:pop).returns(nil)   # Keep connections from taking requests away
         @this = Database.connect 'crunch_test', min_connections: 2, heartbeat: 0.01, on_heartbeat: ->{@beat_count += 1}
         EM.set_quantum 10   # So we don't wait forever on our heartbeat calls
       end
@@ -176,7 +185,10 @@ module Crunch
         tick {5.times {@this << DummyRequest.new}}
         sleep 0.05
         @this.connection_count.should == 5
-        5.times {@this.requests.pop {true}}
+        # Undo all our stubbing and connection faking-out
+        EM::Queue.any_instance.unstub(:pop)
+        @this.instance_variable_set(:@requests, EM::Queue.new)    # Clear the queue
+        @this.connections.each {|c| c.post_init}  # Start the queue popping again
         sleep 0.1
         @this.connection_count.should == 5
         sleep 0.2
@@ -196,6 +208,18 @@ module Crunch
         sleep 0.03
         @beat_count.should be_within(1.01).of(2)
       end
+      
+      it "removes dead connections" do
+        tick {5.times {@this << DummyRequest.new}}
+        sleep 0.05
+        @this.connection_count.should == 5
+        # Clear the request queue and set the connections to terminate
+        @this.instance_variable_set(:@requests, EM::Queue.new)
+        @this.connections.each {|c| c.handle_request(ShutdownRequest.new)}
+        sleep 2
+        @this.connection_count.should == 2
+      end
+        
     end
       
     after(:each) do
