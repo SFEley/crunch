@@ -20,7 +20,7 @@ module Crunch
     def handle_request(request)
       @last_request = request
       if request.is_a?(ShutdownRequest)
-        close_connection
+        close_connection_after_writing
       else
         send_data(request)
         database.requests.pop self, :handle_request

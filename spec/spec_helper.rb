@@ -17,7 +17,8 @@ def tick(times=5)
   tick, timeout = 0, Time.now + 3
   times.times {EventMachine.next_tick {tick += 1}}
   while tick < times and Time.now < timeout do
-    sleep 0.0001
+    sleep 0.001
+    Thread.pass
   end
   raise "Tick timed out!" unless tick == times
   result
