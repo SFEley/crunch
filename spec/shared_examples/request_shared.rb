@@ -30,5 +30,10 @@ module Crunch
       BSON.to_int(@this.to_s[0..3]).should == @this.body.bytesize + 16
     end
     
+    it "knows its sender" do
+      @this.sender.should_not be_nil
+      @this.sender.should == @sender
+    end
+    
   end
 end

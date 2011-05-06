@@ -3,7 +3,9 @@ require File.dirname(__FILE__) + '/../../spec_helper'
 module Crunch
   describe ShutdownRequest do
     before(:each) do
-      @this = ShutdownRequest.new
+      @sender = DummySender.new
+      
+      @this = ShutdownRequest.new(@sender)
     end
     
     behaves_like "a Request"
@@ -15,8 +17,6 @@ module Crunch
     it "has a plain literal body" do
       @this.body.should == "SHUTDOWN"
     end
-    
-    
     
     
   end

@@ -27,7 +27,7 @@ module Crunch
       @opcode
     end
     
-    attr_reader :began
+    attr_reader :began, :sender
     
     # Sets the time that the request first went into the queue.
     # @return Time
@@ -53,10 +53,14 @@ module Crunch
     end
     
     
-    
-    def initialize(options={})
-      # Set any generic options passed; this flexibility keeps us from having to override
-      # the initializer in subclasses.
+    # @param [Object] sender The object initiating the request. Must implement
+    #   the `#accept_response` method to get any data back from MongoDB 
+    #   if a reply is expected.
+    # @param [Hash] options Subclass-specific.
+    def initialize(sender, options={})
+      # Set any generic options passed; this flexibility keeps us from 
+      # having to override the initializer in every subclasses.
+      @sender = sender
       options.each {|k,v| instance_variable_set "@#{k}".to_sym, v}
     end
   end

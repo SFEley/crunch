@@ -32,5 +32,17 @@ module Crunch
       @status = :terminated
     end
     
+    def receive_data(bytes)
+      # Algorithm shamelessly lifted from EventMachine's ObjectProtocol code.
+      (@buffer ||= ''.encode(Encoding::BINARY)) << bytes
+      @size ||= @buffer.unpack('V')[0]  # This is nil if we don't have 4 bytes yet
+      
+      while @size && @buffer.bytesize >= @size
+        # We have a complete message!  Send it and take it off the front of the buffer.
+        @last_request.sender.accept_response(@buffer.slice!(0..@size-1))
+        @size = @buffer.unpack('V')[0]  # Rinse, repeat.
+      end
+    end
+    
   end
 end

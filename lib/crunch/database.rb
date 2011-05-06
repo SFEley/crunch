@@ -123,7 +123,7 @@ module Crunch
     
     def remove_connection
       @connections_mutex.synchronize do
-        self << ShutdownRequest.new   # Put a suicide note into the queue
+        self << ShutdownRequest.new(self) # Put a suicide note into the queue
         @heartbeat_count = 0
       end
     end

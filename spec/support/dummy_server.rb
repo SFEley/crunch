@@ -1,3 +1,5 @@
+# encoding: BINARY
+
 # A stub for the other side of connection testing.  All we do is listen on the 
 # hold onto the bytes we get, and then dump that buffer when asked what
 # they were. 
@@ -13,9 +15,16 @@ $DUMMY_PORT = 91919
 module DummyServer
   @@buffer = "".force_encoding(Encoding::BINARY)
   @@buffer_mutex = Mutex.new
+  @@when = nil
+  @@with = nil
   
   def receive_data(bytes)
     @@buffer_mutex.synchronize {@@buffer += bytes}
+    if @@when === @@buffer
+      reply = [@@with.bytesize + 16, 0, 0, 1].pack('VVVV')
+      reply += @@with
+      send_data reply
+    end
   end
   
   def self.received
@@ -38,4 +47,13 @@ module DummyServer
       @@buffer.empty?
     end
   end
+  
+  # Tells the DummyServer to respond with the `:with` content when the
+  # `:when` string or regex is encountered in a request.
+  def self.reply(options)
+    @@when = options[:when]
+    @@with = options[:with].force_encoding(Encoding::BINARY)
+    
+  end  
+  
 end

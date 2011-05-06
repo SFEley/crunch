@@ -3,8 +3,9 @@ require File.dirname(__FILE__) + '/../spec_helper'
 module Crunch
   describe Request do
     before(:each) do
+      @sender = DummySender.new
       @message = "To sit in sullen silence..."
-      @this = Request.new(message: @message)
+      @this = Request.new(@sender, message: @message)
     end
     
     behaves_like "a Request"
@@ -20,8 +21,6 @@ module Crunch
     it "null terminates the message" do
       @this.body.bytesize.should == @message.bytesize + 1
     end
-    
-    
     
   end
 end

@@ -215,7 +215,7 @@ module Crunch
         @this.connection_count.should == 5
         # Clear the request queue and set the connections to terminate
         @this.instance_variable_set(:@requests, EM::Queue.new)
-        @this.connections.each {|c| c.handle_request(ShutdownRequest.new)}
+        @this.connections.each {|c| c.handle_request(ShutdownRequest.new(nil))}
         sleep 2
         @this.connection_count.should == 2
       end
