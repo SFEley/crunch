@@ -221,7 +221,31 @@ module Crunch
       end
         
     end
+
+    describe "collections" do
+      before(:each) do
+        @this = Database.connect 'crunch_test'
+      end
+
+      it "can take a string for the name" do
+        @this.collection('test_collection').should be_a(Collection)
+      end
       
+      it "can take a symbol for the name" do
+        @this.collection(:test_collection).should be_a(Collection)
+      end
+      
+      it "are singletons" do
+        coll1 = @this.collection('test_collection')
+        coll2 = @this.collection(:test_collection)
+        coll1.should be(coll2)
+      end
+      
+      it "can be listed" do
+        pending "Must implement commands first"
+      end
+    end
+
     after(:each) do
       # We have to clear the global Databases hash _and_ stop EventMachine to reset to initial state.
       Database.class_variable_set(:@@databases, {})

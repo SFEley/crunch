@@ -85,6 +85,12 @@ module Crunch
       @requests.push request
       self
     end
+    
+    # Returns the singleton Collection instance for the given name.
+    # @param [String, Symbol] name
+    def collection(name)
+      @collections[name.to_sym] ||= Collection.send :new_from_database, self, name.to_s
+    end
        
     
   
@@ -100,6 +106,7 @@ module Crunch
       @heartbeat_timer = nil
       @heartbeat_count = 0
       @requests = EM::Queue.new
+      @collections = {}
       perform_heartbeat = EM::Callback(self, :perform_heartbeat)
       
       # Start EventMachine in its own thread. If it's already running, 
