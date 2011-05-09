@@ -1,3 +1,4 @@
+#encoding: UTF-8
 module Crunch
   
   # Crunch::Collections map directly to named MongoDB collections, and one is
@@ -23,6 +24,10 @@ module Crunch
     def initialize(database, name)
       @database = database
       @name = name
+    end
+    
+    def inspect
+      "«#{name}»"
     end
     
   end

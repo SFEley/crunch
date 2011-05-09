@@ -100,6 +100,113 @@ You can set the pool size and growth/reduction rate with the following options:
 * **:max\_connections** _(Integer)_ Don't grow the pool past this size. Defaults to _10_.
 * **:heartbeat** _(Integer, Float)_ Interval in seconds at which to perform connection maintenance. Defaults to _1_.
 
+Collection
+----------
+The **Crunch::Collection** class is the hook that data itself hangs from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can be treated as a Query, and the documents within it can be iterated or accessed.
+
+**NOTE:** Not every Collection instance method is described in this section. The `.get` and `.create` methods are described in the **Crunch::Document** section because they return single Document objects. And the `.prior`, `.post`, `.push` and `.pop` methods are described in the **Finding and Modifying** section because they require some explanation. 
+
+### Creation ###
+Like Database objects, Collection objects use the _singleton_ pattern.  A particular named collection in a particular database will have _one_ object representing it.  The explicit way to create this object is with the Database's `.collection` method:
+
+    collection = my_database.collection 'characters', count: true, run: true, refresh: 60
+
+The Collection may also be created at the first reference to its name within a Query or Document constructor.  Once created, any further references or calls to `.collection` will return the same object again, and any options will alter the Collection's properties.  (Unlike Documents or Queries, Collections are _not_ immutable.)
+
+### Implicit Query ###
+It's a very common use case to access or iterate through all the documents in a collection.  Creating a separate Query object with no search conditions is simple enough, but it's one more object for your application to manage.  Crunch simplifies things by allowing each Collection object to have an _implicit query_, and exposing all of the query's methods via delegation:
+
+    collection = my_database.collection 'characters'
+    collection.ready? #=> false  (The query won't run until the first data access)
+    collection.first  #=> {'_id' => [...], 'name' => 'John Sheridan', 'species' => 'Human', 'messianic' => true, ...}
+    collection[5]     #=> {'_id' => [...], 'name' => 'Susan Ivanova', 'species' => 'Human', 'is_god' => true, ...}
+      
+Unlike ordinary queries, the implicit query's **:run** value defaults to _false_.  This means that the query won't actually be executed until the first time it's needed.  This is sensible, since it's very probable you won't use it at all, but you can override it to _true_ if you want data to be available shortly after the Collection is created.
+
+You can also _refresh_ the implicit query to bring the Collection's contents up to date.  This works in practice by replacing the old query with a new one.  You can trigger it manually with the `.refresh!` method, or you can set the **:refresh** option or `.refresh` attribute to a positive integer value.  This produces an EventMachine periodic timer that replaces the implicit query with a new one every _N_ seconds.  (It's probably a bad idea to override the **:run** option to _true_ for a periodic timer.)
+
+If you decide to use periodic refreshes, please keep the consequences in mind.  It means documents and their order _can and will_ change in the background; so calling, say, `collection[5]` could return a different document between one call and the next.  Don't try to manually iterate through the records using their indexes, because the set of things you're looking at could change at any time.  Enumerators and code blocks are safe, however; they'll continue to refer to their original Query object and its contents even after the Collection has dropped it from scope.
+
+Confused?  Don't overthink it.  If all this implicit delegate stuff seems too gonzo, you can forget the whole idea and get a standalone Query object representing the entire collection:
+
+    collection.query
+    
+### Inserting ###
+
+Inserting a single document is very simple:
+
+    collection.insert 'name' => "G'Kar", 'species' => 'Narn', 'hair' => false, 'paraphrases' => 'Socrates'
+    
+You can pass a Fieldset object or a hash (which will be implicitly converted to a Fieldset).  If you don't specify an *'\_id'* field, Crunch will create one before sending the document to the server.  The *'\_id'* is also the return value of the `.insert` method so that you can retrieve the document or link to it as needed.
+
+You can also insert multiple documents at once:
+
+    collection.insert {'name' => 'Londo Mollari'}, {'name' => 'Vir Kotto'}
+    
+The return value in this case is an array of the documents' *'\_id'* values.
+
+#### Safety ####
+
+The `.insert` method respects the value of the `.safe` attribute at the module, Database, or Collection levels, or via the **:safe** option to the method call:
+
+    collection.insert 'name' => 'Morden', safe: true      # (Irony.)
+
+If safety is _false_ (the default) the method will return immediately, leaving EventMachine to handle the actual _'INSERT'_ message in the background.  If safety is _true_ the method becomes synchronous, and blocks until the insert is sent and a _getLastError_ request has been answered.  If there are no errors, the *'\_id'* value(s) will eventually be returned as described above.  If an error occurs, a **Crunch::IndexError** exception will be raised with the details.
+
+### Deleting ###
+
+Unsurprisingly, deleting looks a lot like inserting:
+
+    collection.delete 'role' => 'redshirt', multi: false, safe: true
+    
+The main hash (i.e., everything except options) represents the search conditions specifying which documents to delete. If no conditions are given, every document in the collection will be deleted. (Caveat applicator!)
+
+The return value is not meaningful in 'unsafe' mode. If called with the **:safe** option it will return the number of documents deleted, or a **Crunch::DeleteError** exception if an error occurs.   
+    
+Options:
+
+* **:multi** _(Boolean)_ - if _true_, will delete every document matching the conditions. If _false_, will only delete the first document found. Defaults to _true_. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)
+* **:safe** _(Boolean)_ - see above.
+
+
+### Updating ###
+
+Updating documents looks like querying on them for the most part:
+
+    collection.update 'species' => 'Vorlon', set: {'religious_iconography' => true}, multi: true, upsert: false
+
+The main hash (i.e., everything except options) represents the search conditions specifying which documents to update. If no conditions are given, the entire collection will be updated. The update values are passed as options. 
+
+The return value is not meaningful in 'unsafe' mode. If called with the **:safe** option it will return the number of documents updated, or a **Crunch::UpdateError** exception if an error occurs.
+    
+#### Control Options ####
+
+The following options are simple flags controlling MongoDB's behavior:
+
+* **:multi** _(Boolean)_ - if _true_, will update every document matching the **:query** conditions.  If _false_, will only update the first document found. Defaults to _true_. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)
+* **:upsert** _(Boolean)_ - if _true_, will create a new document matching the **:query** conditions if no matching documents are found. Defaults to _false_. (Also see the `.push` method, which will return the document itself.)
+* **:safe** _(Boolean)_ - see above.
+
+#### Update Options ####
+
+For more information on all of the following, see the [official MongoDB documentation](http://www.mongodb.org/display/DOCS/Updating):
+
+* **:document** _(Hash, Fieldset)_ - replace the entirety of a single matching document with the given fields. Implicitly sets **:multi** to _false_ (and will throw a **Crunch::UpdateError** if you try to override it). Rarely useful outside the traditional `Document#save` context.
+* **:set** _(Hash, Fieldset)_ - sets the given fields to the given values.
+* **:unset** _(String, Symbol, Array)_ - takes a field name or a list of names and removes each one.
+* **:inc** _(String, Symbol, Array, Hash, Fieldset)_ - if given a hash or fieldset, increments each key by each value. If given a field name or list of names, increments by an implied value of 1.
+* **:push** _(Hash, Fieldset)_ - appends the given values to the arrays named by the given keys.
+* **:pushAll** _(Hash, Fieldset)_ - like **:push**, but with arrays of values. See the Mongo documentation.
+* **:addToSet** _(Hash, Fieldset)_ - appends the given values to the given arrays _if_ they don't already exist.
+* **:addAllToSet** _(Hash, Fieldset)_ - like **:addToSet**, but with arrays of values. (_Custom:_ does an implied `$each`.)
+* **:pop** _(String, Symbol, Array, Hash)_ - given an array name or a list of arrays, removes the last element from each. Given a hash, removes the last element for values of _1_ or _:last_ or the first element for values of _-1_ or _:first_. See the Mongo documentation if you need to mix 'last' and 'first' behavior, or use the next two bullet points. 
+* **:pop_last** _(String, Symbol, Array)_ - removes the last element from each array name or list of arrays. (_Custom:_ syntactic sugar for **:pop**.)
+* **:pop_first** _(String, Symbol, Array)_ - removes the first element from each array name or list of arrays. (_Custom:_ syntactic sugar for **:pop**.)
+* **:pull** _(Hash, Fieldset)_ - removes the given values from the arrays named by the given keys.
+* **:pullAll** _(Hash, Fieldset)_ - like **:pull**, but with arrays of values. See the Mongo documentation.
+* **:rename** _(Hash, Fieldset)_ - changes the given field names to the given values.
+* **:bit** _(Hash, Fieldset)_ - performs the bitwise updates from the values on the given fields. See the Mongo documentation.
+
 
 Query
 -----
@@ -122,7 +229,7 @@ Pass a Collection object in the first parameter, and then any options or query s
 #### From a Collection ####
 The Collection object has a `.query` method as a shortcut to the above. This time you only have to worry about your options hash:
     
-    query = collection.query 'characters', 'role' => 'Commander', 'name' => /J.+ S.+/, 'messianic' => true
+    query = collection.query 'role' => 'Commander', 'name' => /J.+ S.+/, 'messianic' => true
     query.collect {|c| c['name']}   #=> ['Jeffrey Sinclair', 'John Sheridan']
  
 #### From Another Query ####
@@ -272,112 +379,6 @@ For more refinement, you can pass procs or lambdas to the following query option
 * **:on\_retrieval** _(Proc)_ Called after each cursor return.  Passes the query and the index of the first document in the relevant batch as parameters. Useful if you want to display progress or avoid synchronous delays from the network.
 
 
-Collection
-----------
-The **Crunch::Collection** class is the hook that data itself hangs from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can be treated as a Query, and the documents within it can be iterated or accessed.
-
-**NOTE:** Not every Collection instance method is described in this section. The `.get` and `.create` methods are described in the **Crunch::Document** section because they return single Document objects. And the `.prior`, `.post`, `.push` and `.pop` methods are described in the **Finding and Modifying** section because they require some explanation. 
-
-### Creation ###
-Like Database objects, Collection objects use the _singleton_ pattern.  A particular named collection in a particular database will have _one_ object representing it.  The explicit way to create this object is with the Database's `.collection` method:
-
-    collection = my_database.collection 'characters', count: true, run: true, refresh: 60
-
-The Collection may also be created at the first reference to its name within a Query or Document constructor.  Once created, any further references or calls to `.collection` will return the same object again, and any options will alter the Collection's properties.  (Unlike Documents or Queries, Collections are _not_ immutable.)
-
-### Implicit Query ###
-It's a very common use case to access or iterate through all the documents in a collection.  Creating a separate Query object with no search conditions is simple enough, but it's one more object for your application to manage.  Crunch simplifies things by allowing each Collection object to have an _implicit query_, and exposing all of the query's methods via delegation:
-
-    collection = my_database.collection 'characters'
-    collection.ready? #=> false  (The query won't run until the first data access)
-    collection.first  #=> {'_id' => [...], 'name' => 'John Sheridan', 'species' => 'Human', 'messianic' => true, ...}
-    collection[5]     #=> {'_id' => [...], 'name' => 'Susan Ivanova', 'species' => 'Human', 'is_god' => true, ...}
-      
-Unlike ordinary queries, the implicit query's **:run** value defaults to _false_.  This means that the query won't actually be executed until the first time it's needed.  This is sensible, since it's very probable you won't use it at all, but you can override it to _true_ if you want data to be available shortly after the Collection is created.
-
-You can also _refresh_ the implicit query to bring the Collection's contents up to date.  This works in practice by replacing the old query with a new one.  You can trigger it manually with the `.refresh!` method, or you can set the **:refresh** option or `.refresh` attribute to a positive integer value.  This produces an EventMachine periodic timer that replaces the implicit query with a new one every _N_ seconds.  (It's probably a bad idea to override the **:run** option to _true_ for a periodic timer.)
-
-If you decide to use periodic refreshes, please keep the consequences in mind.  It means documents and their order _can and will_ change in the background; so calling, say, `collection[5]` could return a different document between one call and the next.  Don't try to manually iterate through the records using their indexes, because the set of things you're looking at could change at any time.  Enumerators and code blocks are safe, however; they'll continue to refer to their original Query object and its contents even after the Collection has dropped it from scope.
-
-Confused?  Don't overthink it.  If all this implicit delegate stuff seems too gonzo, you can forget the whole idea and get a standalone Query object representing the entire collection:
-
-    collection.query
-    
-### Inserting ###
-
-Inserting a single document is very simple:
-
-    collection.insert 'name' => "G'Kar", 'species' => 'Narn', 'hair' => false, 'paraphrases' => 'Socrates'
-    
-You can pass a Fieldset object or a hash (which will be implicitly converted to a Fieldset).  If you don't specify an *'\_id'* field, Crunch will create one before sending the document to the server.  The *'\_id'* is also the return value of the `.insert` method so that you can retrieve the document or link to it as needed.
-
-You can also insert multiple documents at once:
-
-    collection.insert {'name' => 'Londo Mollari'}, {'name' => 'Vir Kotto'}
-    
-The return value in this case is an array of the documents' *'\_id'* values.
-
-#### Safety ####
-
-The `.insert` method respects the value of the `.safe` attribute at the module, Database, or Collection levels, or via the **:safe** option to the method call:
-
-    collection.insert 'name' => 'Morden', safe: true      # (Irony.)
-
-If safety is _false_ (the default) the method will return immediately, leaving EventMachine to handle the actual _'INSERT'_ message in the background.  If safety is _true_ the method becomes synchronous, and blocks until the insert is sent and a _getLastError_ request has been answered.  If there are no errors, the *'\_id'* value(s) will eventually be returned as described above.  If an error occurs, a **Crunch::IndexError** exception will be raised with the details.
-
-### Deleting ###
-
-Unsurprisingly, deleting looks a lot like inserting:
-
-    collection.delete 'role' => 'redshirt', multi: false, safe: true
-    
-The main hash (i.e., everything except options) represents the search conditions specifying which documents to delete. If no conditions are given, every document in the collection will be deleted. (Caveat applicator!)
-
-The return value is not meaningful in 'unsafe' mode. If called with the **:safe** option it will return the number of documents deleted, or a **Crunch::DeleteError** exception if an error occurs.   
-    
-Options:
-
-* **:multi** _(Boolean)_ - if _true_, will delete every document matching the conditions. If _false_, will only delete the first document found. Defaults to _true_. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)
-* **:safe** _(Boolean)_ - see above.
-
-
-### Updating ###
-
-Updating documents looks like querying on them for the most part:
-
-    collection.update 'species' => 'Vorlon', set: {'religious_iconography' => true}, multi: true, upsert: false
-
-The main hash (i.e., everything except options) represents the search conditions specifying which documents to update. If no conditions are given, the entire collection will be updated. The update values are passed as options. 
-
-The return value is not meaningful in 'unsafe' mode. If called with the **:safe** option it will return the number of documents updated, or a **Crunch::UpdateError** exception if an error occurs.
-    
-#### Control Options ####
-
-The following options are simple flags controlling MongoDB's behavior:
-
-* **:multi** _(Boolean)_ - if _true_, will update every document matching the **:query** conditions.  If _false_, will only update the first document found. Defaults to _true_. (The more common use case in the author's brash opinion. Differs from the 'official' MongoDB default, so beware!)
-* **:upsert** _(Boolean)_ - if _true_, will create a new document matching the **:query** conditions if no matching documents are found. Defaults to _false_. (Also see the `.push` method, which will return the document itself.)
-* **:safe** _(Boolean)_ - see above.
-
-#### Update Options ####
-
-For more information on all of the following, see the [official MongoDB documentation](http://www.mongodb.org/display/DOCS/Updating):
-
-* **:document** _(Hash, Fieldset)_ - replace the entirety of a single matching document with the given fields. Implicitly sets **:multi** to _false_ (and will throw a **Crunch::UpdateError** if you try to override it). Rarely useful outside the traditional `Document#save` context.
-* **:set** _(Hash, Fieldset)_ - sets the given fields to the given values.
-* **:unset** _(String, Symbol, Array)_ - takes a field name or a list of names and removes each one.
-* **:inc** _(String, Symbol, Array, Hash, Fieldset)_ - if given a hash or fieldset, increments each key by each value. If given a field name or list of names, increments by an implied value of 1.
-* **:push** _(Hash, Fieldset)_ - appends the given values to the arrays named by the given keys.
-* **:pushAll** _(Hash, Fieldset)_ - like **:push**, but with arrays of values. See the Mongo documentation.
-* **:addToSet** _(Hash, Fieldset)_ - appends the given values to the given arrays _if_ they don't already exist.
-* **:addAllToSet** _(Hash, Fieldset)_ - like **:addToSet**, but with arrays of values. (_Custom:_ does an implied `$each`.)
-* **:pop** _(String, Symbol, Array, Hash)_ - given an array name or a list of arrays, removes the last element from each. Given a hash, removes the last element for values of _1_ or _:last_ or the first element for values of _-1_ or _:first_. See the Mongo documentation if you need to mix 'last' and 'first' behavior, or use the next two bullet points. 
-* **:pop_last** _(String, Symbol, Array)_ - removes the last element from each array name or list of arrays. (_Custom:_ syntactic sugar for **:pop**.)
-* **:pop_first** _(String, Symbol, Array)_ - removes the first element from each array name or list of arrays. (_Custom:_ syntactic sugar for **:pop**.)
-* **:pull** _(Hash, Fieldset)_ - removes the given values from the arrays named by the given keys.
-* **:pullAll** _(Hash, Fieldset)_ - like **:pull**, but with arrays of values. See the Mongo documentation.
-* **:rename** _(Hash, Fieldset)_ - changes the given field names to the given values.
-* **:bit** _(Hash, Fieldset)_ - performs the bitwise updates from the values on the given fields. See the Mongo documentation.
 
 
 Document
@@ -432,7 +433,7 @@ The method is just a shortcut to the `Collection#update` method, so all of the s
 
 Like the Collection method, `.update` is asynchronous and does not return a meaningful value unless you set the **:safe** option to _true._
 
-### Deleting ### 
+### Deleting ###
 
 You can tell the database to get rid of the document with a simple command (which is, again, a shortcut to the Collection method):
 

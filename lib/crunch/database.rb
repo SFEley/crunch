@@ -1,3 +1,4 @@
+#encoding: UTF-8
 require 'crunch'
 
 module Crunch
@@ -92,6 +93,9 @@ module Crunch
       @collections[name.to_sym] ||= Collection.send :new_from_database, self, name.to_s
     end
        
+    def inspect
+      "‹#{name}›"
+    end
     
   
   private
