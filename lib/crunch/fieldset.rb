@@ -1,3 +1,5 @@
+#encoding: BINARY
+
 module Crunch
   
   # What the BSON spec describes as a "document" -- a hashlike binary structure.  In practice, a Fieldset

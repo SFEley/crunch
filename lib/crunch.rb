@@ -14,6 +14,7 @@ module Crunch
   # Requests
   autoload :Request, 'crunch/request'
   autoload :ShutdownRequest, 'crunch/requests/shutdown_request'
+  autoload :InsertRequest, 'crunch/requests/insert_request'
   
   
   # @overload oid

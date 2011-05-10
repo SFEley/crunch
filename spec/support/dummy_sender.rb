@@ -9,5 +9,9 @@ class DummySender
     @header = response.slice!(0..15)
     @response = response
   end
+  
+  def collection_name
+    "dummy_db.dummy_collection"
+  end
     
 end

@@ -59,7 +59,7 @@ module Crunch
     # @param [Hash] options Subclass-specific.
     def initialize(sender, options={})
       # Set any generic options passed; this flexibility keeps us from 
-      # having to override the initializer in every subclasses.
+      # having to override the initializer in every subclass.
       @sender = sender
       options.each {|k,v| instance_variable_set "@#{k}".to_sym, v}
     end
