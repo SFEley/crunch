@@ -4,11 +4,16 @@ Crunch is an alternative MongoDB driver with an emphasis on high concurrency, at
 
 _(**DISCLAIMER:** It isn't fully baked yet.  This README was written early in the process to document the design principles.  Much of what you'll read below doesn't work yet, and any of this is subject to change as ideas are proven unsound through experimentation.  Please don't try to use this in any serious code until it's ready.  You'll know when it's ready because this text won't be here.)_
 
-Structure
+Rationale
 ---------
-Although it wraps the Mongo wire protocol, Crunch diverges conceptually from the "flat struct" operations that the protocol encourages.  It's always bugged me that Mongo interfaces overload the collection class with document-specific operations, while documents themselves are simple hashes with vague limitations.  Meanwhile, the division of responsibility between connections, databases, and collections is murky and often overlapping.  This isn't a flaw in Mongo's architecture, nor is it bad coding on the part of the driver developers.  It comes from trying to impose a _thin_ object-oriented layer on top of a purely functional binary protocol.  
+Crunch differs conceptually from the official Ruby MongoDB API, but both have the same purpose: to wrap the MongoDB binary wire protocol with Ruby classes and data types and idioms.  The official driver presents a class hierarchy from **Connection** to **Database** to **Collection**, with a **Cursor** object to handle multiple document returns.  This is a reasonable and effective model, but it raises the following design concerns:
 
-Crunch presents a more object-driven layer over the same operations. At the highest level, there are four major classes to understand: the **Database**, the **Collection**, the **Query**, and the **Document**.  The **Fieldset** utility class (of which **Document** is a subclass) is used in place of hashes.  Any Crunch objects representing data are _immutable_ -- once created, they can't be changed. An intermediate level manages connections and BSON serialized messages conforming to Mongo's wire protocol, and EventMachine takes care of sending and receiving binary data from the server.
+* The division of responsibility between **Connection** and **Database** is murky and overlapping.  The binary protocol doesn't have a concept of a "connection" at all; it's an abstraction created by the driver to handle socket messaging, and is rarely meaningful for applications. 
+* The **Collection** class is loaded with almost all document operations; documents are simple Ruby hashes with no database state.  This leads to work on the part of the application (and is a major reason why heavy ORMs tend to be used even in simple use cases).
+* Document operations tend to follow the Javascript API's example in most cases, but not in all cases, leading to "un-Ruby-like" behavior such as multiple positional hash parameters and inconsistent conventions for setting queries and options.
+* The **Cursor** abstraction is somewhat confusing for those used to "recordset" style interfaces, as it can read but not update documents.  It also has counting and rewinding behavior and an unclear lifespan. 
+
+Crunch presents a different object hierarchy, with a "document-based" (as opposed to "collection-based") approach and a stronger adherence to Ruby idioms. At the highest level, there are four major public classes to understand: the **Database**, the **Collection**, the **Query**, and the **Document**.  To reduce ambiguity, the **Fieldset** utility class (from which **Document** derives) is used in places of hashes for database operations.  Fieldsets are _immutable_ -- once created, they can't be changed. This helps to keep state clean for event-driven programming.
 
 Synchronous vs. Asynchronous
 ----------------------------
