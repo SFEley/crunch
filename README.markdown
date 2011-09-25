@@ -13,7 +13,7 @@ Crunch differs conceptually from the official Ruby MongoDB API, but both have th
 * Document operations tend to follow the Javascript API's example in most cases, but not in all cases, leading to "un-Ruby-like" behavior such as multiple positional hash parameters and inconsistent conventions for setting queries and options.
 * The **Cursor** abstraction is somewhat confusing for those used to "recordset" style interfaces, as it can read but not update documents.  It also has counting and rewinding behavior and an unclear lifespan. 
 
-Crunch presents a different object hierarchy, with a "document-based" (as opposed to "collection-based") approach and a stronger adherence to Ruby idioms. At the highest level, there are four major public classes to understand: the **Database**, the **Collection**, the **Query**, and the **Document**.  To reduce ambiguity, the **Fieldset** utility class (from which **Document** derives) is used in places of hashes for database operations.  Fieldsets are _immutable_ -- once created, they can't be changed. This helps to keep state clean for event-driven programming.
+Crunch presents a different object hierarchy, with a _document-based_ (as opposed to _collection-based_) approach and a stronger adherence to Ruby idioms. At the highest level, there are three major public classes: the **Database**, the **Query**, and the **Document**.  Queries and documents are "quasi-mutable" -- they can be refreshed by reloading the database, but cannot be updated except by applying MongoDB operations to them and then reloading.
 
 Synchronous vs. Asynchronous
 ----------------------------
@@ -44,17 +44,52 @@ The public interface of Crunch does _not_ take place in the EventMachine loop.  
 
 It sounds complicated, but from the end user side we've tried to keep it simple.  It's the sane way to build a library that has asynchronous components without forcing you to twist your entire application around the library.  (As an aside, it's also why we didn't use Ruby 1.9 fibers instead of threads.  It's just no good for an EM-agnostic library: to make it work properly, _your_ code would have to know when to yield or resume to the EM reactor's fiber, and then it starts to get ugly.)
 
-Fieldset
---------
-You'll encounter the **Crunch::Fieldset** class a lot when looking at other Crunch objects. It's a Hash subclass with some notable MongoDB-related differences:
+Important Conventions
+---------------------
+Crunch strives for a simple and consistent interface, so that there's less for you to remember.  The following general guidelines apply to most Crunch methods:
 
-* It's immutable. Once created, you can't change the keys nor their values. The object freezes itself on initialization, and common Hash methods that would change the contents will raise an exception.
-* All keys are strings. If you initialize it with an ordinary hash, non-string keys will be converted to strings.
-* The `.to_s` string conversion method returns the fieldset as a BSON binary string. 
+### Object Creation ###
 
-Fieldsets are used throughout Crunch for any MongoDB action involving "a BSON document." (Which is most of them.) Query selectors, update operations, and many other attributes are Fieldsets.  The **Crunch::Document** class is a subset of Fieldset with a required *'\_id'* key and some extra behavior.
+Creating new objects with `.new` is strongly discouraged. Use `Database.connect` to get a Database object, and factory methods like `#query` or `#document` to get Queries and Documents from parent objects. This will save you from having to pass a lot of context around:
 
-In most cases there's no need to create Fieldsets manually -- they're automatically generated from the parameters passed to the various Crunch methods.  Hashes are deeply recursed, and arrays become hashes with values of _1._ (A common MongoDB idiom.) You can also produce a Fieldset from a BSON string or byte buffer. If you ever need to make one, see the documentation.
+    db = Crunch::Database.connect :jukebox
+    band = db.query :songs, 'band' => 'The Beatles'   # Returns a Query on the 'songs' collection
+    album = band.query 'album' => 'Rubber Soul'       # Returns a child Query inheriting the parent's conditions
+    album.count                                       # => 15
+    song = album.document 'attributes' => 'cynical'   # Returns a single Document (like findOne)
+    song.name                                         # => 'Norwegian Wood (This Bird Has Flown)'
+    
+If you just wanted the single song, you could skip the intermediate queries and ask the database directly:
+
+    db = Crunch::Database.connect :jukebox
+    db.document :songs, 'band' => 'Cake', 'album' => 'Comfort Eagle', 'attributes' => 'sexy'
+    song.name     # => 'Short Skirt/Long Jacket'
+    
+Yes, you could do either of the above with `Query.new` or `Document.new` constructors, passing a **:database** parameter.  But it's not as much fun.
+
+### Parameters ###
+
+The only positional parameter in any method will be the name of a database (for `Database.connect`) or the name of a collection (for everything else). This can be a string or symbol, and it's not even necessary if you're generating from another Query object that knows its collection.
+
+The rest of the parameter list is a single hash, intermingling both field names and options.  The method will first remove hash keys which it recognizes to be valid options.  (E.g., **:sort**, **:limit**, etc.)  Anything left is assumed to be a field for a search or update condition.
+
+This may sound at first like a recipe for confusion, but it needn't be.  For one thing, _all options are symbols._  So you can avoid possible name collisions by using strings for your field names:
+
+    highways = db.query :roads, 'limit' => 70, limit: 5  # Returns the first 5 roads with a speed limit of 70
+    
+The Crunch maintainers strongly suggest the convention shown above:
+
+* Use symbol literals for collection and database names whenever valid.
+* Use strings for field names.
+* Use the old-style *'string' => 'value'* syntax for query conditions.
+* Use the Ruby 1.9 *symbol: value* syntax for options.  
+* Put query conditions first and options last.
+
+This will keep conditions and options separate to the eye, without having to pass multiple hashes to the method (which is ugly in Ruby.)  If you don't like this approach, you can also nest your conditions inside the explicit **:conditions** option:
+
+    highways = db.query :roads, conditions: {:limit => 70}, limit: 5  # Same as above example
+
+
 
 
 Database
@@ -67,7 +102,7 @@ If you call the `.connect` method again with the same database name, host, and p
 
 ### Connection Pool ###
 
-Each Database object maintains a private pool of connections to the server, and will scale them up or down based on the running size of the request queue.  These "connections" are just network constructs for dealing with EventMachine; don't confuse them with the top-level Connection class found in other drivers.  There's no public API to an individual connection.  However, you _can_ tune the Database's behavior in terms of pool size and rate of change.
+Each Database object maintains a private pool of network connections to the server, and will scale them up or down based on the running size of the request queue. You can't access the connections directly, but you can tune the Database's behavior in terms of pool size and rate of change.
 
 The basic flow is a "grow quickly, shrink slowly" algorithm which works as follows:
 
@@ -82,7 +117,7 @@ The actual load will depend on your request pattern. Inserts, updates and delete
 
 You can check the size of the request queue with the `.pending_count` method, and the size of the connection pool with the `.connection_count` method.  If you find that the connection count is staying at maximum but your CPU and network bandwidth aren't close to 100% yet, you can safely adjust the `.max_connections` attribute at run time to raise the ceiling.
 
-Note that the asynchronous nature of Crunch's connection pool necessarily breaks serialization. I.e., there's no guarantee that requests you send will be received by the server and processed in order. They'll be _queued_ in order, but if you have, say, an update containing 2 MB of data followed by one that simply increments an integer, it's quite likely that the second update will happen first on the server.  If this is a problem, your recourse is to set **:max\_connections** to 1.  (Or fix your business logic. Or use a database that supports transactions.)
+Note that the asynchronous nature of Crunch's connection pool necessarily breaks serialization. I.e., there's no guarantee that requests you send will be received by the server and processed in order. They'll be _queued_ in order, but if you have, say, an update containing 2 MB of data followed by one that simply increments an integer, it's quite likely that the second update will get to the server first.  If this is a problem, your recourse is to set **:max\_connections** to 1.  (Or fix your business logic. Or use a database that supports transactions instead of MongoDB.)
 
 ### Options ###
 
@@ -105,9 +140,85 @@ You can set the pool size and growth/reduction rate with the following options:
 * **:max\_connections** _(Integer)_ Don't grow the pool past this size. Defaults to _10_.
 * **:heartbeat** _(Integer, Float)_ Interval in seconds at which to perform connection maintenance. Defaults to _1_.
 
-Collection
-----------
-The **Crunch::Collection** class is the hook that data itself hangs from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can be treated as a Query, and the documents within it can be iterated or accessed.
+
+Document
+--------
+The **Crunch::Document** class is the fundamental "single record" representation. It allows MongoDB documents to read, update, or delete themselves on an individual basis.  It's a subclass of **Crunch::Fieldset** with additional restrictions:
+
+* It _must_ be created from a BSON binary string or byte buffer.
+* It _must_ have a Collection attribute.
+* It _must_ have an _'\_id'_ key. (Also accessible by the `.id` attribute.)
+
+The assumption is that a Document represents a real entity _already existing_ in the Mongo database. An unsaved document is not a Document. You shouldn't create these from scratch; the `.new` method is not part of the public API.
+
+### Retrieval ###
+
+Documents are retrieved from Collections using the `.get` method.  You can pass the document's ID or a hash of query options:
+    
+    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectId from a string
+    doc = my_collection.get id                  # Retrieves the document with that ID
+    doc = my_collection.get 'name' => /Joe/, 'age' => {lt: 35}  # Returns the first matching document
+    doc = my_collection.get 'name' => /Joe/, fields: ['name', 'age']  # ...also limits fields returned
+    
+Behind the scenes, the `.get` method is simply creating a **Crunch::Query** and then returning the single record that comes back.  It accepts the **:conditions**, **:fields**, **:skip** and **:sort** options as described in Query.  It does _not_ accept the **:limit** option; the query has an implicit limit of _-1_ and you can't change it. (The negative number prevents the Mongo server from creating a cursor.)
+   
+#### Asynchronous Retrieval ####
+
+Single-document retrievals are synchronous by default: the `.get` method will block until the data has been returned from MongoDB.  Failures will return an exception from the method.  To work with a single document without blocking, you can pass a block to be executed on the document once it's retrieved:
+
+    status = my_collection.get 'first_name' => /Joe/ {|doc| do_something}
+
+The return value is a proc that will return _false_ when called if the code has not yet been executed, _true_ if it has been, and raise any exceptions that arise during execution.
+
+### Creation ###
+
+The roundabout way to make a new document is to run the `.insert` method of the appropriate Collection and then call `.get` to retrieve the returned document *'\_id'*:
+
+    id = dwarfs.insert 'name' => 'Sleepy'   #=> BSON::ObjectId('4d5f25d5a2790e024b000001')
+    doc = dwarfs.get id     #=> <Document> {'_id' => BSON::ObjectId('4d5f25d5a2790e024b000001'), 'name' => 'Sleepy'}
+
+But hark!  There's a `.create` method on the collection that will do it in one (synchronous) step:
+    
+    doc = dwarfs.create 'name' => 'Sleepy'    #=> <Document> {'_id' => BSON::ObjectId('4d5f26d2a2790e024b000002'), 'name' => 'Sleepy'}
+
+Technically, the `.create` method works using a **findAndModify** upsert with a newly generated ID rather than a separate insert and retrieval. But it works the same. Don't worry about it.
+
+### Updating ###
+
+Documents are immutable, so you can't update the object itself. But you _can_ send changes to the database for future generations:
+
+    doc.update set: {'phasers' => 'stun'}, inc: 'cliches'
+    
+The method is just a shortcut to the `Collection#update` method, so all of the same update options apply.  (Including **:document**, if you want to replace the entire contents of the document.)  The **:multi** and **:upsert** options are not valid for obvious reasons. 
+
+Like the Collection method, `.update` is asynchronous and does not return a meaningful value unless you set the **:safe** option to _true._
+
+### Deleting ###
+
+You can tell the database to get rid of the document with a simple command (which is, again, a shortcut to the Collection method):
+
+    doc.delete
+    
+There are no options except for **:safe**.  Like the Collection method, `.delete` is asynchronous and does not return a meaningful value unless you set the **:safe** option to _true._
+
+Will `.delete` cause any changes to the object you're looking at?  No.  Repeat after me: ***Documents are immutable.***  You can turn the object into a ghost, but it will look just as solid.
+
+Fieldset
+--------
+You'll encounter the **Crunch::Fieldset** class a lot when looking at other Crunch objects. It's a Hash subclass with some notable MongoDB-related differences:
+
+* It's immutable. Once created, you can't change the keys nor their values. The object freezes itself on initialization, and common Hash methods that would change the contents will raise an exception.
+* All keys are strings. If you initialize it with an ordinary hash, non-string keys will be converted to strings.
+* The `.to_s` string conversion method returns the fieldset as a BSON binary string. 
+
+Fieldsets are used throughout Crunch for any MongoDB action involving "a BSON document." (Which is most of them.) Query selectors, update operations, and many other attributes are Fieldsets.  The **Crunch::Document** class is a subset of Fieldset with a required *'\_id'* key and some extra behavior.
+
+In most cases there's no need to create Fieldsets manually -- they're automatically generated from the parameters passed to the various Crunch methods.  Hashes are deeply recursed, and arrays become hashes with values of _1._ (A common MongoDB idiom.) You can also produce a Fieldset from a BSON string or byte buffer. If you ever need to make one, see the documentation.
+
+
+Query
+-----
+The **Crunch::Query** class is the hook that data itself hangs from.  Every Query and Document belongs to a Collection, and relies on it for message generation to the server.  It also provides methods for inserting or updating documents, managing indexes, etc.  Through delegation, it can be treated as a Query, and the documents within it can be iterated or accessed.
 
 **NOTE:** Not every Collection instance method is described in this section. The `.get` and `.create` methods are described in the **Crunch::Document** section because they return single Document objects. And the `.prior`, `.post`, `.push` and `.pop` methods are described in the **Finding and Modifying** section because they require some explanation. 
 
@@ -334,11 +445,7 @@ Remember that the Query itself is _immutable_ -- you won't see any changes refle
 ### Options ###
 Because Queries are immutable, all options must be passed at initialization.  Only the **collection** parameter is required; a query without a hash simply returns the entire collection. 
 
-The options hash may contain both search conditions and defined options, mingled interchangeably.  Known options are removed first, and then any key that the Query class doesn't recognize as an option is passed to MongoDB as a search condition.  To avoid confusion and name collisions, we _strongly_ suggest using strings for search conditions (all options are symbols), or else use the explicit **:conditions** option to separate them:  
-
-    highways = db.collection 'roads'
-    highways.query 'limit' => 70, :limit => 5           # Returns the first 5 roads with a speed limit of 70
-    highways.query conditions: {limit: 70}, limit: 5    # The same (using Ruby 1.9 hash syntax)
+The options hash may contain both search conditions and defined options, mingled interchangeably.  
     
 #### MongoDB Options ####
 The following options are defined by the MongoDB server and passed along in the query message:
@@ -386,67 +493,6 @@ For more refinement, you can pass procs or lambdas to the following query option
 
 
 
-Document
---------
-The **Crunch::Document** class is the object you get when you iterate through a Query or Collection. It allows MongoDB documents to read, update, or delete themselves on an individual basis.  It's a subclass of **Crunch::Fieldset** with additional restrictions:
-
-* It _must_ be created from a BSON binary string or byte buffer.
-* It _must_ have a Collection attribute.
-* It _must_ have an _'\_id'_ key. (Also accessible by the `.id` attribute.)
-
-The assumption is that a Document represents a real entity _already existing_ in the Mongo database. An unsaved document is not a Document. You shouldn't create these from scratch; the `.new` method is not part of the public API.
-
-### Retrieval ###
-
-Documents are retrieved from Collections using the `.get` method.  You can pass the document's ID or a hash of query options:
-    
-    id = Crunch.oid '4c14f7943f165103d2000015'  # Makes a BSON ObjectId from a string
-    doc = my_collection.get id                  # Retrieves the document with that ID
-    doc = my_collection.get 'name' => /Joe/, 'age' => {lt: 35}  # Returns the first matching document
-    doc = my_collection.get 'name' => /Joe/, fields: ['name', 'age']  # ...also limits fields returned
-    
-Behind the scenes, the `.get` method is simply creating a **Crunch::Query** and then returning the single record that comes back.  It accepts the **:conditions**, **:fields**, **:skip** and **:sort** options as described in Query.  It does _not_ accept the **:limit** option; the query has an implicit limit of _-1_ and you can't change it. (The negative number prevents the Mongo server from creating a cursor.)
-   
-#### Asynchronous Retrieval ####
-
-Single-document retrievals are synchronous by default: the `.get` method will block until the data has been returned from MongoDB.  Failures will return an exception from the method.  To work with a single document without blocking, you can pass a block to be executed on the document once it's retrieved:
-
-    status = my_collection.get 'first_name' => /Joe/ {|doc| do_something}
-
-The return value is a proc that will return _false_ when called if the code has not yet been executed, _true_ if it has been, and raise any exceptions that arise during execution.
-
-### Creation ###
-
-The roundabout way to make a new document is to run the `.insert` method of the appropriate Collection and then call `.get` to retrieve the returned document *'\_id'*:
-
-    id = dwarfs.insert 'name' => 'Sleepy'   #=> BSON::ObjectId('4d5f25d5a2790e024b000001')
-    doc = dwarfs.get id     #=> <Document> {'_id' => BSON::ObjectId('4d5f25d5a2790e024b000001'), 'name' => 'Sleepy'}
-
-But hark!  There's a `.create` method on the collection that will do it in one (synchronous) step:
-    
-    doc = dwarfs.create 'name' => 'Sleepy'    #=> <Document> {'_id' => BSON::ObjectId('4d5f26d2a2790e024b000002'), 'name' => 'Sleepy'}
-
-Technically, the `.create` method works using a **findAndModify** upsert with a newly generated ID rather than a separate insert and retrieval. But it works the same. Don't worry about it.
-
-### Updating ###
-
-Documents are immutable, so you can't update the object itself. But you _can_ send changes to the database for future generations:
-
-    doc.update set: {'phasers' => 'stun'}, inc: 'cliches'
-    
-The method is just a shortcut to the `Collection#update` method, so all of the same update options apply.  (Including **:document**, if you want to replace the entire contents of the document.)  The **:multi** and **:upsert** options are not valid for obvious reasons. 
-
-Like the Collection method, `.update` is asynchronous and does not return a meaningful value unless you set the **:safe** option to _true._
-
-### Deleting ###
-
-You can tell the database to get rid of the document with a simple command (which is, again, a shortcut to the Collection method):
-
-    doc.delete
-    
-There are no options except for **:safe**.  Like the Collection method, `.delete` is asynchronous and does not return a meaningful value unless you set the **:safe** option to _true._
-
-Will `.delete` cause any changes to the object you're looking at?  No.  Repeat after me: ***Documents are immutable.***  You can turn the object into a ghost, but it will look just as solid.
 
 
 Finding and Modifying
