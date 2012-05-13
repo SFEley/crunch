@@ -71,25 +71,55 @@ Yes, you could do either of the above with `Query.new` or `Document.new` constru
 
 The only positional parameter in any method will be the name of a database (for `Database.connect`) or the name of a collection (for everything else). This can be a string or symbol, and it's not even necessary if you're generating from another Query object that knows its collection.
 
-The rest of the parameter list is a single hash, intermingling both field names and options.  The method will first remove hash keys which it recognizes to be valid options.  (E.g., **:sort**, **:limit**, etc.)  Anything left is assumed to be a field for a search or update condition.
+The rest of the parameter list is a single hash, intermingling both field names and options.  Anything the method recognizes as a valid option (**:sort**, **:limit**, etc.) will be stripped and handled; anything left over is assumed to be a field for a query or update condition.
 
-This may sound at first like a recipe for confusion, but it needn't be.  For one thing, _all options are symbols._  So you can avoid possible name collisions by using strings for your field names:
+This may sound at first like a recipe for confusion, but it needn't be.  For one thing, _all options are symbols._  So you can avoid name collisions by using strings for your field names:
 
     highways = db.query :roads, 'limit' => 70, limit: 5  # Returns the first 5 roads with a speed limit of 70
     
 The Crunch maintainers strongly suggest the convention shown above:
 
 * Use symbol literals for collection and database names whenever valid.
-* Use strings for field names.
-* Use the old-style *'string' => 'value'* syntax for query conditions.
+* Use strings and the old-style *'string' => 'value'* syntax for fields.
 * Use the Ruby 1.9 *symbol: value* syntax for options.  
-* Put query conditions first and options last.
+* Put fields first and options last.
 
-This will keep conditions and options separate to the eye, without having to pass multiple hashes to the method (which is ugly in Ruby.)  If you don't like this approach, you can also nest your conditions inside the explicit **:conditions** option:
+This will keep conditions and options separate to the eye, without having to pass multiple hashes to the method (which is ugly in Ruby.)  If you don't like this approach, you can also nest your conditions inside the explicit **:fields** option:
 
-    highways = db.query :roads, conditions: {:limit => 70}, limit: 5  # Same as above example
+    highways = db.query :roads, fields: {:limit => 70}, limit: 5  # Same as above example
 
+### Synchronicity ###
 
+Methods that return data in Crunch are synchronous by default, to keep client applications clean and Ruby programmers' heads from exploding.  A standard call to the `#document` method will fire off a message to MongoDB, suspend your application's thread for some (hopefully) small number of milliseconds, and then return the Document object you asked for.  In a typical application flow this is exactly what you want.  It works like you expect: ask a question, get the answer.  Done deal.  Mostly.
+
+To be fully precise, there are three possible outcomes to a synchronous query:
+
+* _The database has matching results._  Great.  The result (a Document, a Query, a record count, etc.) becomes the return value of the method.
+* _The database has no matching results._  The method returns nil.
+* _Something went wrong._ An exception is raised. All Crunch exceptions are subclasses of **CrunchError**.
+
+### Asynchronicity ###
+
+To get asynchronous behavior from the same method, simply pass it a block. Instead of getting the data as the return value of the method, it will be passed as a parameter to the block, which will execute at some later time.  This is strictly a "happy path" callback: the block only runs if the database has matching results.  This makes for cleaner code (you don't have to check for nil!) but you must make sure your application can withstand the possibility of the block never running.
+
+To handle other contingencies, every data retrieval method provides two options which can take lambdas or procs:
+
+* **:on_empty** -- called if the database has no matching results. Has no parameters (of course).
+* **:on_error** -- called if something went wrong. Passes the **CrunchError** exception object as a parameter.
+
+Note that these options only make sense in "asynchronous" mode (i.e., if you passed a block as the success callback).  You can pass them for a synchronous method call, but they'll do nothing.
+
+Methods called in asynchronous mode return _true_ unless documented otherwise.
+
+### Safe Modes ###
+
+Methods that alter data in the database (e.g. `#update` and friends) are asynchronous by default.  They return _true_ immediately, and the database receives and makes the change some time later, returning no acknowledgement of success or failure.  
+
+Like other Mongo drivers, Crunch has a "safe mode" option on these methods to confirm that the change actually happened.  Setting **:safe** to a true value will send a **getLastError** command immediately after the action.  The method becomes synchronous and will raise an exception if anything went wrong.  (If nothing went wrong, it will still return _true_ -- just later.)
+
+_Unlike_ other Mongo drivers, Crunch also has an _asynchronous_ safe mode.  If you pass a lambda or proc to the **:on\_error** option of any change method, it will still return immediately, but will call **getLastError** in the background.  The proc will be called with an exception object if any errors are returned. (For symmetry and fun, you can also invoke the safe mode by passing an **:on\_success** option.  This proc will be called if errors are _not_ returned.)
+
+Asynchronous safety is a great way to balance performance and exception handling, if you can handle some extra complexity.  It's not entirely cost-free, however: you're still tying up a connection slightly longer, and a large volume of updates could create a significant backlog.
 
 
 Database
