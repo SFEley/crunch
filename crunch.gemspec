@@ -24,9 +24,9 @@ Gem::Specification.new do |s|
      "README.markdown"
   ]
   s.rdoc_options = ["--charset=UTF-8"]
-  s.add_runtime_dependency      'eventmachine', ["~>0.12"]
-  s.add_development_dependency  'rspec', '~>2.0'
-  s.add_development_dependency  'mocha', '~>0.9'
-  s.add_development_dependency  'mongo', '~>1.0'
+  s.add_runtime_dependency      'eventmachine', "~>1.0"
+  s.add_development_dependency  'rspec', '~>3.0'
+  s.add_development_dependency  'rspec-collection_matchers', '~>1.1'
+  s.add_development_dependency  'mocha', '>0.9'
+  s.add_development_dependency  'mongo', '~>1.11'
 end
-

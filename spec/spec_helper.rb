@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift(File.dirname(__FILE__))
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
+require 'rspec/collection_matchers'
 require 'crunch'
-require 'rspec/autorun'
 require 'mocha'
 require 'mongo'  # For verification only!
 
@@ -23,7 +23,7 @@ def tick(times=5)
   raise "Tick timed out!" unless tick == times
   result
 end
-    
+
 def verifier
   @verifier_db.collection('TestCollection')
 end
@@ -31,26 +31,26 @@ end
 RSpec.configure do |config|
   config.mock_with :mocha
   config.alias_it_should_behave_like_to :behaves_like, 'behaving like'
-  
+
   config.before(:all) do
     @verifier_db = Mongo::Connection.new.db('crunch_test') # For verification while we bootstrap
     @verifier_collection = @verifier_db.create_collection 'TestCollection'
     @verifier_collection.insert dummy: :dummy  # Force collection creation
     @verifier_collection.remove dummy: :dummy
   end
-  # 
+  #
   # config.before(:each) do
   #   Crunch::Database.class_variable_get(:@@databases).clear  # Reinitialize each time
   #   Crunch.timeout = 2
   # end
-  #   
+  #
   config.after(:each) do
     # Clean up our database
     @verifier_db.collections.each do |collection|
       case collection.name
       when 'TestCollection' then collection.remove  # Keep the collection, remove all data
       when /^system\./ then nil   # Leave system collections alone
-      else 
+      else
         @verifier_db.drop_collection collection
       end
     end
